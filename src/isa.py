@@ -81,10 +81,10 @@ ALLOWED_OPERAND_TYPES: dict[Opcode, frozenset[OperandType]] = {
     Opcode.IRET: frozenset({OperandType.NONE}),
 }
 
-_missing = set(Opcode) - set(ALLOWED_OPERAND_TYPES)
-if _missing:
+missing = set(Opcode) - set(ALLOWED_OPERAND_TYPES)
+if missing:
     raise RuntimeError(
-        f"ALLOWED_OPERAND_TYPES не покрывает опкоды: {sorted(o.name for o in _missing)}"
+        f"ALLOWED_OPERAND_TYPES не покрывает опкоды: {sorted(o.name for o in missing)}"
     )
 
 def sign_extend32(raw: int) -> int:
