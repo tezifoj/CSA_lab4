@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -168,3 +169,144 @@ class OutputDevice:
         self.chars.append(char)
         return char
 
+
+class DataPath:
+
+    def __init__(
+            self,
+            code: bytes,
+            data: bytes,
+            schedule: list[tuple[int, str]],
+
+    ) -> None:
+        if len(code) % INSTR_BYTES:
+            raise MachineError("размер файла кода не кратен размеру команды")
+        if len(data) % WORD_BYTES:
+            raise MachineError("размер файла данных не кратен размеру слова")
+        # память команд
+        fmt = f"{INSTR_BYTES}s"
+        self.imem = [item[0] for item in struct.iter_unpack(fmt, code)]
+        if len(self.imem) > CODE_MEM_WORDS:
+            raise MachineError("программа не помещается в память команд")
+        # память данных
+        fmt = f">{WORD_BYTES}s"
+        words = [decode_word(item[0]) for item in struct.iter_unpack(fmt, data)]
+        if len(words) > STACK_BOTTOM:
+            raise MachineError("данные не помещаются в память данных")
+        self.dmem = words + [0] * (DATA_MEM_WORDS - len(words))
+
+        self.input_dev = InputDevice(schedule)
+        self.output_dev = OutputDevice()
+
+        self.ps = 0
+        self.ac = 0
+        self.sp = DATA_MEM_WORDS  # указатель стека
+        self.da = 0  # регистр адреса данных
+        self.dr: Instruction | None = None  # регистр команды
+        self.flags = Flags()
+        self.ie = False  # разрешение прерываний
+        self.in_irq = False  # выполняется обработчик прерывания
+        self.halted = False
+
+    # состояния, которые видит ControlUnit
+    @property
+    def pend(self) -> bool:
+        """Запрос прерывания от устройства ввода"""
+        return self.input_dev.irq
+
+    @property
+    def operand(self) -> int:
+        if self.dr is None:
+            raise MachineError("в регистре команды нет команды")
+        return self.dr.operand
+
+    # устройства
+
+    def deliver_input(self, tick: int) -> list[str]:
+        return self.input_dev.deliver(tick)
+
+    # мультиплексоры
+
+    def mux_ps(self, sel: PsSel) -> int:
+        if sel == PsSel.INC:
+            return self.ps + 1
+        if sel == PsSel.OPERAND:
+            return self.operand
+        if sel == PsSel.VECTOR:
+            return INTERRUPT_VECTOR
+        return self.cache.rdata
+
+    def mux_da(self, sel: DaSel) -> int:
+        if sel == DaSel.OPERAND:
+            return self.operand
+        if sel == DaSel.SP_OFFSET:
+            return self.sp + self.operand
+        if sel == DaSel.SP:
+            return self.sp
+        return self.cache.rdata
+
+    def mux_b(self, sel: BSel, notes: list[str]) -> int:
+        if sel == BSel.OPERAND:
+            return self.operand
+        if sel == BSel.DATA:
+            return self.cache.rdata
+        value = self.input_dev.read(self.operand)
+        notes.append(f"IN port {self.operand} -> {value}")
+        return value
+
+    def mux_w(self, sel: WSel) -> int:
+        if sel == WSel.ACC:
+            return self.ac
+        if sel == WSel.PS:
+            return self.ps
+        return self.flags.to_word()
+
+    # функциональные блоки
+
+    def alu(self, op: AluOp, b: int) -> int:
+        """ALU: левый вход AC, правый вход B; результат 32 бита со знаком"""
+        a = self.ac
+        if op == AluOp.PASS_B:
+            result = b
+        elif op == AluOp.ADD:
+            result = a + b
+        elif op == AluOp.SUB:
+            result = a - b
+        elif op == AluOp.MUL:
+            result = a * b
+        else:
+            if b == 0:
+                raise MachineError("деление на ноль")
+            quotient = abs(a) // abs(b)
+            if (a < 0) != (b < 0):
+                quotient = -quotient
+            result = quotient if op == AluOp.DIV else a - b * quotient
+        return sign_extend32(result & WORD_MASK)
+
+    def sp_adder(self, sel: SpSel) -> int:
+        new_sp = self.sp - 1 if sel == SpSel.DEC else self.sp + 1
+        if new_sp < STACK_BOTTOM:
+            raise MachineError("переполнение стека")
+        if new_sp > DATA_MEM_WORDS:
+            raise MachineError("выход за основание стека")
+        return new_sp
+
+    def fetch_instruction(self) -> Instruction:
+        """Чтение памяти команд по PS и декодирование слова в регистр команды"""
+        if not 0 <= self.ps < len(self.imem):
+            raise MachineError(f"PS={self.ps} вне программы")
+        try:
+            return decode_instruction(self.imem[self.ps])
+        except ValueError as exc:
+            raise MachineError(f"неверная команда по адресу {self.ps}: {exc}") from exc
+
+    def access_memory(self, sig: Signals, notes: list[str]) -> bool:
+        """Такт обращения к памяти данных через кеш; вернуть ready."""
+        if not self.cache.busy:
+            if sig.mem_rd:
+                self.cache.start_read(self.da)
+            else:
+                self.cache.start_write(self.da, self.mux_w(sig.w_sel))
+        ready = self.cache.tick()
+        notes.append(self.cache.describe())
+        return ready

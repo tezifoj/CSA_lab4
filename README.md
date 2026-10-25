@@ -239,9 +239,87 @@ name        ::= letter (letter | digit | "-" | "_")*
 ## Транслятор
 
 ## Модель процессора
+Интерфейс командной строки:
+
+```
+usage: simulator [-h] code_name data_name input_name
+                 [--log [LOG]] [--limit [LIMIT]]
+
+Accumulator architecture CPU simulator
+
+positional arguments:
+  code_name           input file with binary code
+  data_name           input file with static memory content
+  input_name          input file with input schedule: [(tick, 'char'), ...]
+
+options:
+  -h, --help          show this help message and exit
+  --log [LOG]         output file for processor journal
+  --limit [LIMIT]     maximum number of ticks to simulate (default 1000000)
+```
+
+Реализовано в модуле: [src/machine.py](src/machine.py).
+
+DataPath и ControlUnit реализованы как одноимённые классы. DataPath принимает сигналы от ControlUnit в виде объекта `Signals`, хранящего описание сигналов. Обработка сигналов выполняется в методе `DataPath.execute`.
 
 ### DataPath
-![DataPath](resources/DataPath.png)
+
+![DataPath](resources/datapath.png)
+
+Схема DataPath принимает следующие сигналы от ControlUnit:
+
+- `latch_ps` - записать выбранное значение в регистр PS (`ps_sel`):
+  - PS + 1
+  - операнд инструкции `operand`
+  - вектор прерывания (адрес 1)
+  - выход кеша `data_out`
+- `latch_dr` - записать в регистр команды DR инструкцию из памяти команд по адресу PS
+- `latch_sp` - записать выбранное значение в регистр SP (`sp_sel`):
+  - SP + 1
+  - SP - 1
+- `latch_da` - записать выбранное значение в регистр DA (`da_sel`):
+  - операнд инструкции `operand`
+  - адрес на стеке со смещением SP + `operand`
+  - SP
+  - выход кеша `data_out`
+- `latch_acc` - записать в регистр ACC результат АЛУ. Правый вход АЛУ выбирается сигналом `b_sel`:
+  - операнд инструкции `operand`
+  - выход кеша `data_out`
+  - значение порта ввода
+- `alu_op` - код операции АЛУ между аккумулятором и выбранным значением: `PASS_B` (правый вход без изменений), `ADD`, `SUB`, `MUL`, `DIV`, `REM`
+- `latch_flags` - сохранить флаги NF, ZF, PF (`flags_sel`):
+  - по результату АЛУ
+  - из выхода кеша `data_out` (восстановление при `iret`)
+- `mem_rd` - прочитать слово из памяти данных по адресу DA через кеш
+- `mem_wr` - записать слово в память данных по адресу DA через кеш. Записываемое значение выбирается сигналом `w_sel`:
+  - значение аккумулятора ACC
+  - значение PS
+  - значение флагов
+- `io_wr` - записать аккумулятор в порт вывода, номер порта задаёт `operand`
+- `set_ie`, `clr_ie` - установить и сбросить флаг разрешения прерываний IE
+- `set_in_irq`, `clr_in_irq` - установить и сбросить флаг IN_IRQ (выполняется обработчик прерывания)
+- `ack_irq` - сбросить запрос прерывания PEND
+- `halt` - остановить процессор
+
+Флаги:
+
+- NF - признак отрицательности результата АЛУ
+- ZF - признак того, что результат АЛУ равен нулю
+- PF - признак положительности результата АЛУ
+- IE - прерывания разрешены
+- IN_IRQ - выполняется обработчик прерывания
+- PEND - устройство ввода выставило запрос прерывания
+
+Устройства:
+
+- DATA CACHE - кеш данных прямого отображения, write-through. Чтение: попадание 1 такт, промах 10 тактов. Запись всегда 10 тактов
+- DATA MEMORY - однопортовая память данных
+- INPUT DEVICE (порт 0) - в такты из расписания записывает символ в порт и выставляет PEND
+- OUTPUT DEVICE (порт 1) - принимает символы от аккумулятора
+
+`operand` - это операнд текущей инструкции (числовое значение, адрес, смещение, номер порта).
 
 ### ControlUnit
+
 ![ControlUnit](resources/ControlUnit.png)
+
