@@ -28,6 +28,11 @@ PORT_OUT = 1
 
 STACK_BOTTOM = DATA_MEM_WORDS - STACK_WORDS  # ниже этого адреса стек расти не может
 
+HIT_TICKS = 1  # обращение к кешу
+MEM_TICKS = 10  # обращение к памяти данных
+CACHE_LINES = 4
+DEFAULT_TICK_LIMIT = 1_000_000
+
 
 class MachineError(Exception):
     pass  # ошибка времени выполнения модели
@@ -170,6 +175,77 @@ class OutputDevice:
         return char
 
 
+class DataCache:
+
+    def __init__(self, memory: list[int], lines: int = CACHE_LINES) -> None:
+        self.memory = memory
+        self.lines = lines
+        self.tags: list[int | None] = [None] * lines
+        self.words: list[int] = [0] * lines
+        self.rdata = 0  # выходной регистр кеша
+        self.busy = False
+        self.is_write = False
+        self.addr = 0
+        self.value = 0
+        self.hit = False
+        self.remaining = 0
+        self.total = 0
+        self.read_hits = 0
+        self.read_misses = 0
+        self.writes = 0
+
+    def _locate(self, addr: int) -> tuple[int, int, bool]:
+        if not 0 <= addr < DATA_MEM_WORDS:
+            raise MachineError(f"адрес данных вне памяти: {addr}")
+        index, tag = addr % self.lines, addr // self.lines
+        return index, tag, self.tags[index] == tag
+
+    def start_read(self, addr: int) -> None:
+        _, _, self.hit = self._locate(addr)
+        self._start(addr, is_write=False, value=0, ticks=HIT_TICKS if self.hit else MEM_TICKS)
+
+    def start_write(self, addr: int, value: int) -> None:
+        _, _, self.hit = self._locate(addr)
+        self._start(addr, is_write=True, value=value, ticks=MEM_TICKS)
+
+    def _start(self, addr: int, *, is_write: bool, value: int, ticks: int) -> None:
+        self.busy = True
+        self.is_write = is_write
+        self.addr = addr
+        self.value = value
+        self.remaining = ticks
+        self.total = ticks
+
+    def tick(self) -> bool:
+        """Один такт работы, return ready"""
+        self.remaining -= 1
+        if self.remaining > 0:
+            return False
+        index, tag, _ = self._locate(self.addr)
+        if self.is_write:
+            self.writes += 1
+            self.memory[self.addr] = self.value
+            if self.hit:
+                self.words[index] = self.value
+        else:
+            if self.hit:
+                self.read_hits += 1
+            else:
+                self.read_misses += 1
+                self.tags[index] = tag
+                self.words[index] = self.memory[self.addr]
+            self.rdata = self.words[index]
+        self.busy = False
+        return True
+
+    def describe(self) -> str:
+        done = self.total - self.remaining
+        kind = "WR" if self.is_write else "RD"
+        status = "HIT" if self.hit else "MISS"
+        wait = "" if self.remaining == 0 else " wait"
+        return f"CACHE {kind} [{self.addr}] {status} {done}/{self.total}{wait}"
+
+
 class DataPath:
 
     def __init__(
@@ -177,7 +253,7 @@ class DataPath:
             code: bytes,
             data: bytes,
             schedule: list[tuple[int, str]],
-
+            cache_lines: int = CACHE_LINES,
     ) -> None:
         if len(code) % INSTR_BYTES:
             raise MachineError("размер файла кода не кратен размеру команды")
@@ -197,6 +273,7 @@ class DataPath:
 
         self.input_dev = InputDevice(schedule)
         self.output_dev = OutputDevice()
+        self.cache = DataCache(self.dmem, cache_lines)
 
         self.ps = 0
         self.ac = 0

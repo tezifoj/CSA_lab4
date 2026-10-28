@@ -243,7 +243,7 @@ name        ::= letter (letter | digit | "-" | "_")*
 
 ```
 usage: simulator [-h] code_name data_name input_name
-                 [--log [LOG]] [--limit [LIMIT]]
+                 [--log [LOG]] [--limit [LIMIT]] [--cache-lines [N]]
 
 Accumulator architecture CPU simulator
 
@@ -256,6 +256,8 @@ options:
   -h, --help          show this help message and exit
   --log [LOG]         output file for processor journal
   --limit [LIMIT]     maximum number of ticks to simulate (default 1000000)
+  --cache-lines [N]   number of cache lines (default 4)
+
 ```
 
 Реализовано в модуле: [src/machine.py](src/machine.py).
@@ -317,9 +319,39 @@ DataPath и ControlUnit реализованы как одноимённые к�
 - INPUT DEVICE (порт 0) - в такты из расписания записывает символ в порт и выставляет PEND
 - OUTPUT DEVICE (порт 1) - принимает символы от аккумулятора
 
-`operand` - это операнд текущей инструкции (числовое значение, адрес, смещение, номер порта).
-
 ### ControlUnit
 
 ![ControlUnit](resources/ControlUnit.png)
 
+### Кеш
+Кеш данных стоит между DataPath и памятью данных. Через него идут все обращения к памяти данных.
+
+
+![Cache](resources/Cache.png)
+
+| Параметр                 | Значение |
+|--------------------------|---|
+| Чтение, попадание (hit)  | 1 такт |
+| Чтение, промах (miss)    | 10 тактов, строка заполняется из памяти |
+| Запись                   | всегда 10 тактов |
+| Политика записи          | сквозная (write-through), без выделения строки при промахе (write-no-allocate) |
+
+
+### Сигналы
+
+`mem_rd`, `mem_wr` - начать и удерживать чтение или запись по адресу `DA`.
+
+`ready` - обращение завершено; пока `ready = 0`, SC не меняется, тактовые сигналы удерживаются.
+
+`hit` - описание: слово найдено в строке.
+
+`mem_req` - описание: запрос чтения или записи в память.
+
+`fill_sel` — направление: контроллер -> MUX_FILL — описание: источник слова для строки: `mem_data` или `wdata`.
+
+`latch_line` — направление: контроллер -> массив — описание: записать строку (`V = 1`, `TAG`, `DATA`).
+
+`wdata` — направление: MUX_W -> кеш, DATA_MEM — описание: записываемое слово.
+
+`data_out` — направление: кеш -> DataPath — описание: выходной регистр кеша, прочитанное слово.
+### Тестирование
