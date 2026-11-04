@@ -20,25 +20,31 @@
 
 ```
 program     ::= toplevel*
-toplevel    ::= defun | define | expr
+toplevel    ::= defun | defint | define | expr
 
 define      ::= "(" "define" name expr ")"
 defun       ::= "(" "defun" name "(" name* ")" expr+ ")"
+defint      ::= "(" "defint" name "(" ")" expr+ ")"
 
-expr        ::= number | string | name | form
+expr        ::= number | char | string | name | form
 form        ::= "(" binop expr expr ")"
+              | "(" "not" expr ")"
               | "(" "if" expr expr expr ")"
               | "(" "progn" expr+ ")"
+              | "(" "let" "(" binding+ ")" expr+ ")"
               | "(" "setq" name expr ")"
               | "(" "loop" "for" name "from" expr "to" expr "do" expr+ ")"
               | "(" name expr* ")"
-
+binding     ::= "(" name expr ")"
 binop       ::= "+" | "-" | "*" | "/" | "%"
               | "=" | "!=" | "<" | ">" | "<=" | ">="
 
 number      ::= "-"? digit+
+char        ::= "#\" (<печатный символ> | "newline" | "space" | "tab" | "nul")
 string      ::= '"' (<любой символ кроме " и \> | "\n" | "\t" | '\"' | "\\")* '"'
 name        ::= letter (letter | digit | "-" | "_")*
+
+comment     ::= ";" <до конца строки>
 ```
 
 Зарезервированные слова: `define`, `defun`, `defint`, `if`, `progn`, `let`, `setq`, `loop`, `for`, `from`, `to`, `do`, `not`. Идентификаторы чувствительны к регистру.
@@ -101,6 +107,7 @@ name        ::= letter (letter | digit | "-" | "_")*
 
 ```lisp
 (printnumber (loop for i from 1 to 3 do (* i i)))   ; 9
+(define x 0)
 (setq x (loop for i from 1 to 0 do i))              ; x = 0 (итераций нет)
 ```
 
