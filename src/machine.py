@@ -387,3 +387,261 @@ class DataPath:
         ready = self.cache.tick()
         notes.append(self.cache.describe())
         return ready
+
+    # такт
+
+    def execute(self, sig: Signals, notes: list[str]) -> bool:
+        """Выполнить такт по сигналам, вернуть ready"""
+        if sig.mem_rd or sig.mem_wr:
+            return self.access_memory(sig, notes)
+
+        new_ps, new_dr, new_sp, new_da = self.ps, self.dr, self.sp, self.da
+        new_ac, new_flags = self.ac, self.flags
+
+        if sig.latch_dr:
+            new_dr = self.fetch_instruction()
+        if sig.latch_ps:
+            new_ps = self.mux_ps(sig.ps_sel)
+        if sig.latch_sp:
+            new_sp = self.sp_adder(sig.sp_sel)
+        if sig.latch_da:
+            new_da = self.mux_da(sig.da_sel)
+        if sig.latch_acc or (sig.latch_flags and sig.flags_sel == FlagsSel.ALU):
+            result = self.alu(sig.alu_op, self.mux_b(sig.b_sel, notes))
+            if sig.latch_acc:
+                new_ac = result
+            if sig.latch_flags:
+                new_flags = Flags.of(result)
+        if sig.latch_flags and sig.flags_sel == FlagsSel.DATA:
+            new_flags = Flags.from_word(self.cache.rdata)
+        if sig.io_wr:
+            char = self.output_dev.write(self.operand, self.ac)
+            notes.append(f"OUT port {self.operand} <- {char!r}")
+
+        self.ps, self.dr, self.sp, self.da = new_ps, new_dr, new_sp, new_da
+        self.ac, self.flags = new_ac, new_flags
+        self._apply_control_flags(sig)
+        return True
+
+    def _apply_control_flags(self, sig: Signals) -> None:
+        if sig.set_ie:
+            self.ie = True
+        if sig.clr_ie:
+            self.ie = False
+        if sig.set_in_irq:
+            self.in_irq = True
+        if sig.clr_in_irq:
+            self.in_irq = False
+        if sig.ack_irq:
+            self.input_dev.ack()
+        if sig.halt:
+            self.halted = True
+
+
+# ControlUnit
+
+FETCH = Signals(latch_dr=True, latch_ps=True, ps_sel=PsSel.INC)
+_RD = Signals(mem_rd=True)
+_DA_FROM_DATA = Signals(latch_da=True, da_sel=DaSel.DATA)
+_DA_FROM_SP = Signals(latch_da=True, da_sel=DaSel.SP)
+_SP_DEC = Signals(latch_sp=True, sp_sel=SpSel.DEC)
+_SP_INC = Signals(latch_sp=True, sp_sel=SpSel.INC)
+
+_ALU_OF: dict[Opcode, AluOp] = {
+    Opcode.LD: AluOp.PASS_B,
+    Opcode.ADD: AluOp.ADD,
+    Opcode.SUB: AluOp.SUB,
+    Opcode.MUL: AluOp.MUL,
+    Opcode.DIV: AluOp.DIV,
+    Opcode.REM: AluOp.REM,
+}
+_COND_JUMPS = JUMP_OPCODES - {Opcode.CALL}
+
+_INTERRUPT_ENTRY: list[Signals] = [
+    _SP_DEC,
+    _DA_FROM_SP,
+    Signals(mem_wr=True, w_sel=WSel.PS),
+    _SP_DEC,
+    _DA_FROM_SP,
+    Signals(mem_wr=True, w_sel=WSel.FLAGS),
+    Signals(latch_ps=True, ps_sel=PsSel.VECTOR, set_in_irq=True, ack_irq=True),
+]
+
+
+class ControlUnit:
+    """Блок управления: decoder, step counter, branch logic, interrupt condition, signal logic"""
+
+    def __init__(self, datapath: DataPath) -> None:
+        self.datapath = datapath
+        self.step = 0 # счётчик тактов внутри текущей инструкции
+        self.interrupt_entry = False
+        self.instructions = 0
+        self.interrupts = 0
+
+        def instruction_decoder(self) -> Instruction:
+            """Код операции и способ адресации выполняемой команды"""
+            instr = self.datapath.dr
+            if instr is None:
+                raise MachineError("в регистре команды нет команды")
+            if instr.operand_type not in ALLOWED_OPERAND_TYPES[instr.opcode]:
+                raise MachineError(
+                    f"недопустимый тип операнда {instr.operand_type.name} для {instr.opcode.name}"
+                )
+            return instr
+
+        def branch_logic(self, op: Opcode) -> bool:
+            """Условия перехода по флагам N, Z, P"""
+            flags = self.datapath.flags
+            if op == Opcode.JMP:
+                return True
+            if op == Opcode.JE:
+                return flags.z
+            if op == Opcode.JG:
+                return flags.p
+            if op == Opcode.JGE:
+                return flags.z or flags.p
+            if op == Opcode.JL:
+                return flags.n
+            if op == Opcode.JLE:
+                return flags.z or flags.n
+            if op == Opcode.JNE:
+                return not flags.z
+            raise MachineError(f"не условный переход: {op.name}")
+
+        def interrupt_condition(self) -> bool:
+            """PEND & IE & ¬IN_IRQ & step0"""
+            return self.datapath.pend and self.datapath.ie and not self.datapath.in_irq and self.datapath.step0
+
+        @staticmethod
+        def _da_from_operand(operand_type: OperandType) -> Signals:
+            sel = DaSel.OPERAND if operand_type == OperandType.ADDRESS else DaSel.SP_OFFSET
+            return Signals(latch_da=True, da_sel=sel)
+
+        def _load_like_signals(self, instr: Instruction) -> list[Signals]:
+            """ld, add, sub, mul, div, rem"""
+            op, ot = instr.opcode, instr.operand_type
+            if ot == OperandType.IMMEDIATE:
+                immediate = True
+            else:
+                immediate = False
+            execute = Signals(
+                latch_acc=True,
+                b_sel=BSel.OPERAND if ot == OperandType.IMMEDIATE else BSel.DATA,
+                alu_op=_ALU_OF[op],
+                latch_flags=op != Opcode.LD,
+            )
+            if immediate:
+                return [execute]
+            if ot == OperandType.STACK_POINTER:
+                return [self._da_from_operand(ot), _RD, _DA_FROM_DATA, _RD, execute]
+            return [self._da_from_operand(ot), _RD, execute]
+
+        def _store_signals(self, instr: Instruction) -> list[Signals]:
+            ot = instr.operand_type
+            write = Signals(mem_wr=True, w_sel=WSel.ACC)
+            if ot == OperandType.STACK_POINTER:
+                return [self._da_from_operand(ot), _RD, _DA_FROM_DATA, write]
+            return [self._da_from_operand(ot), write]
+
+        def _execution_signals(self, instr: Instruction) -> list[Signals]:
+            op = instr.opcode
+            if op == Opcode.LD or op in _ALU_OF:
+                return self._load_like_signals(instr)
+            if op == Opcode.ST:
+                return self._store_signals(instr)
+            if op in _COND_JUMPS:
+                if self.branch_logic(op):
+                    return [Signals(latch_ps=True, ps_sel=PsSel.OPERAND)]
+                return [Signals()]
+            if op == Opcode.PUSH:
+                return [_SP_DEC, _DA_FROM_SP, Signals(mem_wr=True, w_sel=WSel.ACC)]
+            if op == Opcode.POP:
+                return [_SP_INC]
+            if op == Opcode.CALL:
+                return [
+                    _SP_DEC,
+                    _DA_FROM_SP,
+                    Signals(mem_wr=True, w_sel=WSel.PS),
+                    Signals(latch_ps=True, ps_sel=PsSel.OPERAND),
+                ]
+            if op == Opcode.RET:
+                return [
+                    _DA_FROM_SP,
+                    _RD,
+                    Signals(latch_ps=True, ps_sel=PsSel.DATA, latch_sp=True, sp_sel=SpSel.INC),
+                ]
+            if op == Opcode.IN:
+                return [Signals(latch_acc=True, b_sel=BSel.PORT, alu_op=AluOp.PASS_B)]
+            if op == Opcode.OUT:
+                return [Signals(io_wr=True)]
+            if op == Opcode.EI:
+                return [Signals(set_ie=True)]
+            if op == Opcode.DI:
+                return [Signals(clr_ie=True)]
+            if op == Opcode.IRET:
+                return [
+                    _DA_FROM_SP,
+                    _RD,
+                    Signals(
+                        latch_flags=True,
+                        flags_sel=FlagsSel.DATA,
+                        latch_sp=True,
+                        sp_sel=SpSel.INC,
+                    ),
+                    _DA_FROM_SP,
+                    _RD,
+                    Signals(
+                        latch_ps=True,
+                        ps_sel=PsSel.DATA,
+                        latch_sp=True,
+                        sp_sel=SpSel.INC,
+                        clr_in_irq=True,
+                    ),
+                ]
+            if op == Opcode.HLT:
+                return [Signals(halt=True)]
+            raise MachineError(f"неизвестная команда: {op.name}")
+
+        def signal_logic(self) -> tuple[Signals, bool]:
+            """Выбрать Signals текущего такта и признак последнего такта"""
+            if self.interrupt_entry:
+                return _INTERRUPT_ENTRY[self.step - 1], self.step == len(_INTERRUPT_ENTRY)
+            if self.step == 0:
+                return FETCH, False
+            sequence = self._execution_signals(self.instruction_decoder())
+            return sequence[self.step - 1], self.step == len(sequence)
+
+        def step_counter(self, *, ready: bool, last: bool) -> None:
+            """Номер такта растёт, пока тракт данных готов; после последнего такта сбрасывается"""
+            if not ready:
+                return
+            if last:
+                self.step = 0
+                self.interrupt_entry = False
+            else:
+                self.step += 1
+
+        def tick(self, notes: list[str]) -> tuple[int, bool]:
+            if self.interrupt_condition():
+                self.interrupt_entry = True
+                self.step = 1
+                self.interrupts += 1
+                notes.append("INTERRUPT: вход в обработчик")
+
+            executed_step = self.step
+            was_interrupt = self.interrupt_entry
+            signals, last = self.signal_logic()
+            ready = self.dp.execute(signals, notes)
+            if executed_step == 0 and not was_interrupt:
+                self.instructions += 1
+            self.step_counter(ready=ready, last=last)
+            return executed_step, was_interrupt
+
+        def label(self, step: int, *, was_interrupt: bool) -> str:
+            """Подпись выполняемой команды для лога"""
+            if was_interrupt:
+                return "INTERRUPT ENTRY"
+            instr = self.dp.dr
+            mnemonic = instruction_to_string(instr) if instr is not None else "-"
+            return f"FETCH -> {mnemonic}" if step == 0 else mnemonic
+
