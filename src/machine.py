@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import argparse
+import ast
 import struct
+import sys
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TextIO
@@ -719,3 +722,80 @@ class Machine:
             read_hits=cache.read_hits,
             read_misses=cache.read_misses,
         )
+
+
+def parse_schedule(text: str) -> list[tuple[int, str]]:
+    """Преобразование текста в список"""
+    stripped = text.strip()
+    if not stripped:
+        return []
+    try:
+        raw = ast.literal_eval(stripped)
+    except (ValueError, SyntaxError) as exc:
+        raise MachineError(f"неверный формат ввода: {exc}") from exc
+    schedule: list[tuple[int, str]] = []
+    for item in raw:
+        tick, char = item
+        if not isinstance(tick, int) or not isinstance(char, str) or len(char) != 1:
+            raise MachineError(f"неверный элемент: {item!r}")
+        schedule.append((tick, char))
+    return schedule
+
+
+def run_files(
+        code_path: str,
+        data_path: str,
+        input_path: str,
+        *,
+        log: TextIO | None,
+        limit: int,
+        cache_lines: int,
+) -> Result:
+    with open(code_path, "rb") as file:
+        code = file.read()
+    with open(data_path, "rb") as file:
+        data = file.read()
+    with open(input_path, encoding="utf-8") as file:
+        schedule = parse_schedule(file.read())
+    machine = Machine(code, data, schedule, log=log, cache_lines=cache_lines)
+    return machine.run(limit)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Модель процессора (acc, harv, trap, port, cache)")
+    parser.add_argument("code", help="бинарный файл команд")
+    parser.add_argument("data", help="бинарный файл данных")
+    parser.add_argument("input", help="файл с расписанием ввода")
+    parser.add_argument("--log", help="файл журнала работы процессора")
+    parser.add_argument("--limit", type=int, default=DEFAULT_TICK_LIMIT, help="максимум тактов")
+    parser.add_argument("--cache-lines", type=int, default=CACHE_LINES, help="число строк кеша")
+    args = parser.parse_args(argv)
+
+    log_file = open(args.log, "w", encoding="utf-8") if args.log else None
+    try:
+        result = run_files(
+            args.code,
+            args.data,
+            args.input,
+            log=log_file,
+            limit=args.limit,
+            cache_lines=args.cache_lines,
+        )
+    except (MachineError, OSError) as exc:
+        sys.stderr.write(f"ошибка: {exc}\n")
+        return 1
+    finally:
+        if log_file is not None:
+            log_file.close()
+
+    sys.stdout.write(result.output + "\n")
+    sys.stderr.write(
+        f"тактов: {result.ticks}, команд: {result.instructions}, прерываний: {result.interrupts}, "
+        f"кеш: попаданий {result.read_hits}, промахов {result.read_misses}, "
+        f"причина остановки: {result.reason}\n"
+    )
+    return 0 if result.halted else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
