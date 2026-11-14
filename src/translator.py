@@ -501,3 +501,373 @@ def iter_nodes(node: object):  # noqa: ANN201
     yield node
     for _, child in _describe(node)[1]:
         yield from iter_nodes(child)
+
+# Размещение данных
+
+
+@dataclass
+class Layout:
+    strings: dict[str, int]
+    globals: dict[str, int]
+    buffers: dict[int, int]  # id(makestring) -> адрес
+    words: list[int]
+
+
+def build_layout(items: list[tuple[Toplevel, str]]) -> Layout:
+    """Строки с адреса 0, затем глобальные переменные, затем буферы makestring"""
+    strings: dict[str, int] = {}
+    words: list[int] = []
+    for item, _ in items:
+        for node in iter_nodes(item):
+            if isinstance(node, Str) and node.value not in strings:
+                strings[node.value] = len(words)
+                words += [*node.value.encode("utf-8"), 0]
+    globals_: dict[str, int] = {}
+    for item, origin in items:
+        if isinstance(item, Define):
+            if item.name in globals_:
+                raise TranslatorError(f"{origin}:{item.line}: повторное определение переменной {item.name!r}")
+            globals_[item.name] = len(words)
+            words.append(0)
+    buffers: dict[int, int] = {}
+    for item, origin in items:
+        for node in iter_nodes(item):
+            if isinstance(node, Call) and node.name == "makestring":
+                size = node.args[0] if len(node.args) == 1 else None
+                if not isinstance(size, Num) or size.value <= 0:
+                    raise TranslatorError(f"{origin}:{node.line}: makestring: размер должен быть положительным числом")
+                buffers[id(node)] = len(words)
+                words += [0] * size.value
+    if len(words) > STATIC_LIMIT:
+        raise TranslatorError("статические данные не помещаются в память данных")
+    return Layout(strings, globals_, buffers, words)
+
+
+# Генерация команд
+
+
+def base_line(e: Expr) -> int:
+    return e.line
+
+
+@dataclass
+class Asm:
+    opcode: Opcode
+    operand_type: OperandType
+    operand: int | str
+    origin: str
+    line: int
+
+
+@dataclass
+class Ctx:
+    name: str | None
+    depth: int = 0  # сколько слов на стеке
+
+
+Env = tuple[tuple[str, int, bool], ...]
+
+
+class CodeGen:
+    def __init__(self, functions: dict[str, Defun], layout: Layout) -> None:
+        self.functions = functions
+        self.layout = layout
+        self.items: list[Asm | str] = []
+        self.ctx = Ctx(None)
+        self.origin = "user"
+        self.line = 0
+        self.labels_count = 0
+
+    def error(self, message: str) -> TranslatorError:
+        return TranslatorError(f"{self.origin}:{self.line}: {message}")
+
+    def new_label(self, hint: str) -> str:
+        self.labels_count += 1
+        return f".{hint}{self.labels_count}"
+
+    def label(self, name: str) -> None:
+        self.items.append(name)
+
+    def emit(self, opcode: Opcode, operand_type: OperandType = OperandType.NONE, operand: int | str = 0) -> None:
+        if operand_type not in ALLOWED_OPERAND_TYPES[opcode]:
+            raise self.error(f"внутренняя ошибка: {opcode.name} не допускает {operand_type.name}")
+        self.items.append(Asm(opcode, operand_type, operand, self.origin, self.line))
+
+    def push(self) -> None:
+        self.emit(Opcode.PUSH)
+        self.ctx.depth += 1
+
+    def pop(self) -> None:
+        self.emit(Opcode.POP)
+        self.ctx.depth -= 1
+
+    def lookup(self, name: str, env: Env) -> tuple[OperandType, int, bool]:
+        for var, slot, readonly in reversed(env):
+            if var == name:
+                return OperandType.STACK_OFFSET, self.ctx.depth + slot, readonly
+        if name in self.layout.globals:
+            return OperandType.ADDRESS, self.layout.globals[name], False
+        raise self.error(f"необъявленное имя {name!r}")
+
+    def simple_operand(self, e: Expr, env: Env) -> tuple[OperandType, int] | None:
+        """Операнд (можно использовать прямо в команде без вычисления)"""
+        if isinstance(e, Num):
+            return OperandType.IMMEDIATE, e.value
+        if isinstance(e, Str):
+            return OperandType.IMMEDIATE, self.layout.strings[e.value]
+        if isinstance(e, Var):
+            self.line = e.line
+            operand_type, operand, _ = self.lookup(e.name, env)
+            return operand_type, operand
+        return None
+
+    def gen_function(self, f: Defun, origin: str) -> None:
+        self.origin, self.line = origin, f.line
+        self.ctx = Ctx(f.name)
+        count = len(f.params)
+        env: Env = tuple((p, count - i, False) for i, p in enumerate(f.params))
+        self.label(f"fn_{f.name}")
+        self.gen_body(f.body, env, tail=True)
+        self.emit(Opcode.RET)
+
+    def gen_interrupt(self, h: Defint, origin: str) -> None:
+        self.origin, self.line = origin, h.line
+        self.ctx = Ctx(None)
+        self.label("int_handler")
+        self.push()  # сохранить AC, PS и флаги уже сохранены аппаратно
+        self.gen_body(h.body, (), tail=False)
+        self.emit(Opcode.LD, OperandType.STACK_OFFSET, self.ctx.depth - 1)
+        self.pop()
+        self.emit(Opcode.IRET)
+
+    def gen_toplevel(self, items: list[tuple[Toplevel, str]]) -> None:
+        self.ctx = Ctx(None)
+        self.label("start")
+        for item, origin in items:
+            self.origin = origin
+            self.line = item.line
+            if isinstance(item, Define):
+                self.gen_expr(item.value, ())
+                self.emit(Opcode.ST, OperandType.ADDRESS, self.layout.globals[item.name])
+            elif isinstance(item, (Defun, Defint)):
+                continue
+            else:
+                self.gen_expr(item, ())
+        self.emit(Opcode.HLT)
+
+    def gen_body(self, body: tuple[Expr, ...], env: Env, *, tail: bool) -> None:
+        for index, e in enumerate(body):
+            self.gen_expr(e, env, tail=tail and index == len(body) - 1)
+
+    # выражения
+
+    def gen_expr(self, e: Expr, env: Env, *, tail: bool = False) -> None:
+        self.line = e.line
+        if isinstance(e, (Num, Str, Var)):
+            operand = self.simple_operand(e, env)
+            assert operand is not None
+            self.emit(Opcode.LD, *operand)
+        elif isinstance(e, BinOp):
+            self.gen_binop(e, env)
+        elif isinstance(e, Not):
+            self.gen_not(e, env)
+        elif isinstance(e, If):
+            self.gen_if(e, env, tail)
+        elif isinstance(e, Progn):
+            self.gen_body(e.body, env, tail=tail)
+        elif isinstance(e, Let):
+            self.gen_let(e, env, tail)
+        elif isinstance(e, Setq):
+            self.gen_setq(e, env)
+        elif isinstance(e, Loop):
+            self.gen_loop(e, env)
+        else:
+            self.gen_call(e, env, tail)
+
+    def gen_flags(self, e: BinOp, env: Env) -> None:
+        """AC = left op right"""
+        opcode = ARITH_OPS.get(e.op, Opcode.SUB)
+        self.gen_expr(e.left, env)
+        operand = self.simple_operand(e.right, env)
+        if operand is not None:
+            self.emit(opcode, *operand)
+            return
+        self.push()
+        self.gen_expr(e.right, env)
+        self.push()
+        self.emit(Opcode.LD, OperandType.STACK_OFFSET, 1)
+        self.emit(opcode, OperandType.STACK_OFFSET, 0)
+        self.pop()
+        self.pop()
+
+    def gen_binop(self, e: BinOp, env: Env) -> None:
+        self.gen_flags(e, env)
+        if e.op in ARITH_OPS:
+            return
+        true_label, end_label = self.new_label("true"), self.new_label("end")
+        self.emit(COMPARE_TRUE[e.op], OperandType.ADDRESS, true_label)
+        self.emit(Opcode.LD, OperandType.IMMEDIATE, 0)
+        self.emit(Opcode.JMP, OperandType.ADDRESS, end_label)
+        self.label(true_label)
+        self.emit(Opcode.LD, OperandType.IMMEDIATE, 1)
+        self.label(end_label)
+
+    def gen_not(self, e: Not, env: Env) -> None:
+        self.gen_expr(e.arg, env)
+        self.emit(Opcode.SUB, OperandType.IMMEDIATE, 0)
+        true_label, end_label = self.new_label("true"), self.new_label("end")
+        self.emit(Opcode.JE, OperandType.ADDRESS, true_label)
+        self.emit(Opcode.LD, OperandType.IMMEDIATE, 0)
+        self.emit(Opcode.JMP, OperandType.ADDRESS, end_label)
+        self.label(true_label)
+        self.emit(Opcode.LD, OperandType.IMMEDIATE, 1)
+        self.label(end_label)
+
+    def gen_jump_if_false(self, cond: Expr, target: str, env: Env) -> None:
+        if isinstance(cond, BinOp) and cond.op in COMPARE_FALSE:
+            self.line = cond.line
+            self.gen_flags(cond, env)
+            self.emit(COMPARE_FALSE[cond.op], OperandType.ADDRESS, target)
+        elif isinstance(cond, Not):
+            self.gen_expr(cond.arg, env)
+            self.emit(Opcode.SUB, OperandType.IMMEDIATE, 0)
+            self.emit(Opcode.JNE, OperandType.ADDRESS, target)
+        else:
+            self.gen_expr(cond, env)
+            self.emit(Opcode.SUB, OperandType.IMMEDIATE, 0)
+            self.emit(Opcode.JE, OperandType.ADDRESS, target)
+
+    def gen_if(self, e: If, env: Env, tail: bool) -> None:
+        else_label, end_label = self.new_label("else"), self.new_label("endif")
+        self.gen_jump_if_false(e.cond, else_label, env)
+        self.gen_expr(e.then, env, tail=tail)
+        self.emit(Opcode.JMP, OperandType.ADDRESS, end_label)
+        self.label(else_label)
+        self.gen_expr(e.otherwise, env, tail=tail)
+        self.label(end_label)
+
+    def gen_let(self, e: Let, env: Env, tail: bool) -> None:
+        for name, init in e.bindings:
+            self.gen_expr(init, env)
+            self.push()
+            env = (*env, (name, -self.ctx.depth, False))
+        self.gen_body(e.body, env, tail=tail)
+        for _ in e.bindings:
+            self.pop()
+
+    def gen_setq(self, e: Setq, env: Env) -> None:
+        self.gen_expr(e.value, env)
+        self.line = e.line
+        operand_type, operand, readonly = self.lookup(e.name, env)
+        if readonly:
+            raise self.error(f"счётчик цикла {e.name!r} нельзя изменять")
+        self.emit(Opcode.ST, operand_type, operand)
+
+    def gen_loop(self, e: Loop, env: Env) -> None:
+        self.gen_expr(e.start, env)
+        self.push()
+        slot_i = -self.ctx.depth
+        self.gen_expr(e.end, env)
+        self.push()
+        slot_limit = -self.ctx.depth
+        self.emit(Opcode.LD, OperandType.IMMEDIATE, 0)
+        self.push()
+        slot_result = -self.ctx.depth
+        body_env = (*env, (e.var, slot_i, True))
+        cond_label, end_label = self.new_label("loop"), self.new_label("loopend")
+
+        def at(slot: int) -> int:
+            return self.ctx.depth + slot
+
+        self.label(cond_label)
+        self.emit(Opcode.LD, OperandType.STACK_OFFSET, at(slot_i))
+        self.emit(Opcode.SUB, OperandType.STACK_OFFSET, at(slot_limit))
+        self.emit(Opcode.JG, OperandType.ADDRESS, end_label)
+        self.gen_body(e.body, body_env, tail=False)
+        self.emit(Opcode.ST, OperandType.STACK_OFFSET, at(slot_result))
+        self.emit(Opcode.LD, OperandType.STACK_OFFSET, at(slot_i))
+        self.emit(Opcode.ADD, OperandType.IMMEDIATE, 1)
+        self.emit(Opcode.ST, OperandType.STACK_OFFSET, at(slot_i))
+        self.emit(Opcode.JMP, OperandType.ADDRESS, cond_label)
+        self.label(end_label)
+        self.emit(Opcode.LD, OperandType.STACK_OFFSET, at(slot_result))
+        self.pop()
+        self.pop()
+        self.pop()
+
+    # вызовы
+
+    def gen_call(self, e: Call, env: Env, tail: bool) -> None:
+        if e.name in BUILTIN_ARITY:
+            self.gen_builtin(e, env)
+            return
+        function = self.functions.get(e.name)
+        if function is None:
+            raise self.error(f"вызов неопределённой функции {e.name!r}")
+        if len(e.args) != len(function.params):
+            raise self.error(f"{e.name}: ожидалось аргументов {len(function.params)}, получено {len(e.args)}")
+        if tail and self.ctx.name == e.name:
+            self.gen_tail_call(e, env)
+            return
+        for arg in e.args:
+            self.gen_expr(arg, env)
+            self.push()
+        self.emit(Opcode.CALL, OperandType.ADDRESS, f"fn_{e.name}")
+        for _ in e.args:
+            self.pop()
+
+    def gen_tail_call(self, e: Call, env: Env) -> None:
+        """Рекурсия: новые аргументы записываются на место параметров"""
+        base_depth = self.ctx.depth
+        count = len(e.args)
+        for arg in e.args:
+            self.gen_expr(arg, env)
+            self.push()
+        for index in range(count):
+            self.emit(Opcode.LD, OperandType.STACK_OFFSET, count - 1 - index)
+            self.emit(Opcode.ST, OperandType.STACK_OFFSET, self.ctx.depth + count - index)
+        for _ in range(self.ctx.depth):
+            self.emit(Opcode.POP)
+        self.emit(Opcode.JMP, OperandType.ADDRESS, f"fn_{e.name}")
+        self.ctx.depth = base_depth
+
+    def gen_builtin(self, e: Call, env: Env) -> None:
+        if len(e.args) != BUILTIN_ARITY[e.name]:
+            raise self.error(f"{e.name}: ожидалось аргументов {BUILTIN_ARITY[e.name]}, получено {len(e.args)}")
+        name = e.name
+        if name == "port-in":
+            self.emit(Opcode.IN, OperandType.PORT, self.port(e.args[0]))
+        elif name == "port-out":
+            port = self.port(e.args[0])
+            self.gen_expr(e.args[1], env)
+            self.emit(Opcode.OUT, OperandType.PORT, port)
+        elif name == "getchar":
+            self.gen_address(e.args[0], e.args[1], env)
+            self.push()
+            self.emit(Opcode.LD, OperandType.STACK_POINTER, 0)
+            self.pop()
+        elif name == "setchar":
+            self.gen_address(e.args[0], e.args[1], env)
+            self.push()
+            self.gen_expr(e.args[2], env)
+            self.emit(Opcode.ST, OperandType.STACK_POINTER, 0)
+            self.pop()
+        elif name == "makestring":
+            self.emit(Opcode.LD, OperandType.IMMEDIATE, self.layout.buffers[id(e)])
+        elif name in ("ei", "di"):
+            self.emit(Opcode.EI if name == "ei" else Opcode.DI)
+            self.emit(Opcode.LD, OperandType.IMMEDIATE, 0)
+        else:
+            self.emit(Opcode.HLT)
+
+    def gen_address(self, base: Expr, index: Expr, env: Env) -> None:
+        """AC = base + index, при index = 0 сложение не нужно"""
+        if isinstance(index, Num) and index.value == 0:
+            self.gen_expr(base, env)
+        else:
+            self.gen_expr(BinOp("+", base, index, base_line(base)), env)
+
+    def port(self, e: Expr) -> int:
+        if not isinstance(e, Num) or not 0 <= e.value <= PORT_LIMIT:
+            raise self.error("номер порта должен быть числовым литералом")
+        return e.value
