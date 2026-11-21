@@ -1,0 +1,120 @@
+in_source: |
+  (printstring "Hello, world!")
+in_input: '[]'
+out_ast: |
+  Program
+    Call printstring
+      arg: Str 'Hello, world!'
+out_listing: |
+  ; code: 33 instructions
+      0 - 08021c000000 - JMP 28 <start>           ; interrupt vector 0
+      1 - 130000000000 - HLT                      ; interrupt vector 1
+  ; fn_printchar:
+      2 - 010301000000 - LD [SP+1]                ; stdlib:2 (port-out 1 c))
+      3 - 210501000000 - OUT 1                    ; stdlib:2 (port-out 1 c))
+      4 - 120000000000 - RET                      ; stdlib:2 (port-out 1 c))
+  ; fn_printstring:
+      5 - 010301000000 - LD [SP+1]                ; stdlib:5 (if (= (getchar s 0) 0)
+      6 - 0f0000000000 - PUSH                     ; stdlib:5 (if (= (getchar s 0) 0)
+      7 - 010400000000 - LD [[SP+0]]              ; stdlib:5 (if (= (getchar s 0) 0)
+      8 - 100000000000 - POP                      ; stdlib:5 (if (= (getchar s 0) 0)
+      9 - 040100000000 - SUB 0                    ; stdlib:5 (if (= (getchar s 0) 0)
+     10 - 0e020d000000 - JNE 13                   ; stdlib:5 (if (= (getchar s 0) 0)
+     11 - 010100000000 - LD 0                     ; stdlib:6 0
+     12 - 08021b000000 - JMP 27                   ; stdlib:6 0
+     13 - 010301000000 - LD [SP+1]                ; stdlib:8 (printchar (getchar s 0))
+     14 - 0f0000000000 - PUSH                     ; stdlib:8 (printchar (getchar s 0))
+     15 - 010400000000 - LD [[SP+0]]              ; stdlib:8 (printchar (getchar s 0))
+     16 - 100000000000 - POP                      ; stdlib:8 (printchar (getchar s 0))
+     17 - 0f0000000000 - PUSH                     ; stdlib:8 (printchar (getchar s 0))
+     18 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:8 (printchar (getchar s 0))
+     19 - 100000000000 - POP                      ; stdlib:8 (printchar (getchar s 0))
+     20 - 010301000000 - LD [SP+1]                ; stdlib:9 (printstring (+ s 1)))))
+     21 - 030101000000 - ADD 1                    ; stdlib:9 (printstring (+ s 1)))))
+     22 - 0f0000000000 - PUSH                     ; stdlib:9 (printstring (+ s 1)))))
+     23 - 010300000000 - LD [SP+0]                ; stdlib:9 (printstring (+ s 1)))))
+     24 - 020302000000 - ST [SP+2]                ; stdlib:9 (printstring (+ s 1)))))
+     25 - 100000000000 - POP                      ; stdlib:9 (printstring (+ s 1)))))
+     26 - 080205000000 - JMP 5 <fn_printstring>   ; stdlib:9 (printstring (+ s 1)))))
+     27 - 120000000000 - RET                      ; stdlib:9 (printstring (+ s 1)))))
+  ; start:
+     28 - 010100000000 - LD 0                     ; user:1 (printstring "Hello, world!")
+     29 - 0f0000000000 - PUSH                     ; user:1 (printstring "Hello, world!")
+     30 - 110205000000 - CALL 5 <fn_printstring>  ; user:1 (printstring "Hello, world!")
+     31 - 100000000000 - POP                      ; user:1 (printstring "Hello, world!")
+     32 - 130000000000 - HLT                      ; user:1 (printstring "Hello, world!")
+  ; data: 14 words
+      0 - 00000048 - 72 'H'
+      1 - 00000065 - 101 'e'
+      2 - 0000006c - 108 'l'
+      3 - 0000006c - 108 'l'
+      4 - 0000006f - 111 'o'
+      5 - 0000002c - 44 ','
+      6 - 00000020 - 32 ' '
+      7 - 00000077 - 119 'w'
+      8 - 0000006f - 111 'o'
+      9 - 00000072 - 114 'r'
+     10 - 0000006c - 108 'l'
+     11 - 00000064 - 100 'd'
+     12 - 00000021 - 33 '!'
+     13 - 00000000 - 0
+out_stdout: Hello, world!
+out_stats: |
+  ticks: 2139
+  instructions: 314
+  interrupts: 0
+  cache read hits: 95
+  cache read misses: 39
+  stop reason: halt
+out_log: |2
+        1 | MAIN | FETCH -> JMP 28            s0 | PS=1     AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        2 | MAIN | JMP 28                     s1 | PS=28    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        3 | MAIN | FETCH -> LD 0              s0 | PS=29    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        4 | MAIN | LD 0                       s1 | PS=29    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        5 | MAIN | FETCH -> PUSH              s0 | PS=30    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        6 | MAIN | PUSH                       s1 | PS=30    AC=0           SP=65535 DA=0     | Z0N0P0 IE0 PEND0
+        7 | MAIN | PUSH                       s2 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0
+        8 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 1/10 wait
+        9 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 2/10 wait
+       10 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 3/10 wait
+       11 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 4/10 wait
+       12 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 5/10 wait
+       13 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 6/10 wait
+       14 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 7/10 wait
+       15 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 8/10 wait
+       16 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 9/10 wait
+       17 | MAIN | PUSH                       s3 | PS=30    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE WR [65535] MISS 10/10
+       18 | MAIN | FETCH -> CALL 5            s0 | PS=31    AC=0           SP=65535 DA=65535 | Z0N0P0 IE0 PEND0
+       19 | MAIN | CALL 5                     s1 | PS=31    AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0
+       20 | MAIN | CALL 5                     s2 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0
+       21 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 1/10 wait
+       22 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 2/10 wait
+       23 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 3/10 wait
+       24 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 4/10 wait
+       25 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 5/10 wait
+       26 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 6/10 wait
+       27 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 7/10 wait
+       28 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 8/10 wait
+       29 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 9/10 wait
+       30 | MAIN | CALL 5                     s3 | PS=31    AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0 | CACHE WR [65534] MISS 10/10
+       31 | MAIN | CALL 5                     s4 | PS=5     AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0
+       32 | MAIN | FETCH -> LD [SP+1]         s0 | PS=6     AC=0           SP=65534 DA=65534 | Z0N0P0 IE0 PEND0
+       33 | MAIN | LD [SP+1]                  s1 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0
+       34 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 1/10 wait
+       35 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 2/10 wait
+       36 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 3/10 wait
+       37 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 4/10 wait
+       38 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 5/10 wait
+       39 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 6/10 wait
+       40 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 7/10 wait
+  ... 2089 lines omitted ...
+     2130 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 6/10 wait
+     2131 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 7/10 wait
+     2132 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 8/10 wait
+     2133 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 9/10 wait
+     2134 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 10/10
+     2135 | MAIN | RET                        s3 | PS=31    AC=0           SP=65535 DA=65534 | Z1N0P0 IE0 PEND0
+     2136 | MAIN | FETCH -> POP               s0 | PS=32    AC=0           SP=65535 DA=65534 | Z1N0P0 IE0 PEND0
+     2137 | MAIN | POP                        s1 | PS=32    AC=0           SP=65536 DA=65534 | Z1N0P0 IE0 PEND0
+     2138 | MAIN | FETCH -> HLT               s0 | PS=33    AC=0           SP=65536 DA=65534 | Z1N0P0 IE0 PEND0
+     2139 | MAIN | HLT                        s1 | PS=33    AC=0           SP=65536 DA=65534 | Z1N0P0 IE0 PEND0

@@ -1,0 +1,224 @@
+in_source: |
+  (loop for i from 1 to 5 do (printchar (readchar)))
+in_input: '[(200, ''h''), (400, ''e''), (600, ''l''), (800, ''l''), (1000, ''o'')]'
+out_ast: |
+  Program
+    Loop i
+      from: Num 1
+      to: Num 5
+      do: Call printchar
+        arg: Call readchar
+out_listing: |
+  ; code: 80 instructions
+      0 - 080231000000 - JMP 49 <start>           ; interrupt vector 0
+      1 - 08021d000000 - JMP 29 <int_handler>     ; interrupt vector 1
+  ; fn_printchar:
+      2 - 010301000000 - LD [SP+1]                ; stdlib:2 (port-out 1 c))
+      3 - 210501000000 - OUT 1                    ; stdlib:2 (port-out 1 c))
+      4 - 120000000000 - RET                      ; stdlib:2 (port-out 1 c))
+  ; fn_readchar:
+      5 - 010201000000 - LD [1]                   ; stdlib:44 (if (= in-head in-tail)
+      6 - 040202000000 - SUB [2]                  ; stdlib:44 (if (= in-head in-tail)
+      7 - 0e020a000000 - JNE 10                   ; stdlib:44 (if (= in-head in-tail)
+      8 - 080205000000 - JMP 5 <fn_readchar>      ; stdlib:45 (readchar)
+      9 - 08021c000000 - JMP 28                   ; stdlib:45 (readchar)
+     10 - 010200000000 - LD [0]                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     11 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     12 - 010201000000 - LD [1]                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     13 - 070140000000 - REM 64                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     14 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     15 - 010301000000 - LD [SP+1]                ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     16 - 030300000000 - ADD [SP+0]               ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     17 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     18 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     19 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     20 - 010400000000 - LD [[SP+0]]              ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     21 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     22 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     23 - 010201000000 - LD [1]                   ; stdlib:47 (setq in-head (+ in-head 1))
+     24 - 030101000000 - ADD 1                    ; stdlib:47 (setq in-head (+ in-head 1))
+     25 - 020201000000 - ST [1]                   ; stdlib:47 (setq in-head (+ in-head 1))
+     26 - 010300000000 - LD [SP+0]                ; stdlib:48 c)))
+     27 - 100000000000 - POP                      ; stdlib:48 c)))
+     28 - 120000000000 - RET                      ; stdlib:48 c)))
+  ; int_handler:
+     29 - 0f0000000000 - PUSH                     ; stdlib:38 (defint on-input ()
+     30 - 010200000000 - LD [0]                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     31 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     32 - 010202000000 - LD [2]                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     33 - 070140000000 - REM 64                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     34 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     35 - 010301000000 - LD [SP+1]                ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     36 - 030300000000 - ADD [SP+0]               ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     37 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     38 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     39 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     40 - 200500000000 - IN 0                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     41 - 020400000000 - ST [[SP+0]]              ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     42 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+     43 - 010202000000 - LD [2]                   ; stdlib:41 (setq in-tail (+ in-tail 1))))
+     44 - 030101000000 - ADD 1                    ; stdlib:41 (setq in-tail (+ in-tail 1))))
+     45 - 020202000000 - ST [2]                   ; stdlib:41 (setq in-tail (+ in-tail 1))))
+     46 - 010300000000 - LD [SP+0]                ; stdlib:41 (setq in-tail (+ in-tail 1))))
+     47 - 100000000000 - POP                      ; stdlib:41 (setq in-tail (+ in-tail 1))))
+     48 - 320000000000 - IRET                     ; stdlib:41 (setq in-tail (+ in-tail 1))))
+  ; start:
+     49 - 010103000000 - LD 3                     ; stdlib:34 (define in-buf (makestring 64))
+     50 - 020200000000 - ST [0]                   ; stdlib:34 (define in-buf (makestring 64))
+     51 - 010100000000 - LD 0                     ; stdlib:35 (define in-head 0)
+     52 - 020201000000 - ST [1]                   ; stdlib:35 (define in-head 0)
+     53 - 010100000000 - LD 0                     ; stdlib:36 (define in-tail 0)
+     54 - 020202000000 - ST [2]                   ; stdlib:36 (define in-tail 0)
+     55 - 300000000000 - EI                       ; stdlib:62 (ei)
+     56 - 010100000000 - LD 0                     ; stdlib:62 (ei)
+     57 - 010101000000 - LD 1                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     58 - 0f0000000000 - PUSH                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     59 - 010105000000 - LD 5                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     60 - 0f0000000000 - PUSH                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     61 - 010100000000 - LD 0                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     62 - 0f0000000000 - PUSH                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     63 - 010302000000 - LD [SP+2]                ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     64 - 040301000000 - SUB [SP+1]               ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     65 - 0a024b000000 - JG 75                    ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     66 - 110205000000 - CALL 5 <fn_readchar>     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     67 - 0f0000000000 - PUSH                     ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     68 - 110202000000 - CALL 2 <fn_printchar>    ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     69 - 100000000000 - POP                      ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     70 - 020300000000 - ST [SP+0]                ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     71 - 010302000000 - LD [SP+2]                ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     72 - 030101000000 - ADD 1                    ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     73 - 020302000000 - ST [SP+2]                ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     74 - 08023f000000 - JMP 63                   ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     75 - 010300000000 - LD [SP+0]                ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     76 - 100000000000 - POP                      ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     77 - 100000000000 - POP                      ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     78 - 100000000000 - POP                      ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+     79 - 130000000000 - HLT                      ; user:1 (loop for i from 1 to 5 do (printchar (readchar)))
+  ; data: 67 words
+      0 - 00000000 - 0
+      1 - 00000000 - 0
+      2 - 00000000 - 0
+      3 - 00000000 - 0
+      4 - 00000000 - 0
+      5 - 00000000 - 0
+      6 - 00000000 - 0
+      7 - 00000000 - 0
+      8 - 00000000 - 0
+      9 - 00000000 - 0
+     10 - 00000000 - 0
+     11 - 00000000 - 0
+     12 - 00000000 - 0
+     13 - 00000000 - 0
+     14 - 00000000 - 0
+     15 - 00000000 - 0
+     16 - 00000000 - 0
+     17 - 00000000 - 0
+     18 - 00000000 - 0
+     19 - 00000000 - 0
+     20 - 00000000 - 0
+     21 - 00000000 - 0
+     22 - 00000000 - 0
+     23 - 00000000 - 0
+     24 - 00000000 - 0
+     25 - 00000000 - 0
+     26 - 00000000 - 0
+     27 - 00000000 - 0
+     28 - 00000000 - 0
+     29 - 00000000 - 0
+     30 - 00000000 - 0
+     31 - 00000000 - 0
+     32 - 00000000 - 0
+     33 - 00000000 - 0
+     34 - 00000000 - 0
+     35 - 00000000 - 0
+     36 - 00000000 - 0
+     37 - 00000000 - 0
+     38 - 00000000 - 0
+     39 - 00000000 - 0
+     40 - 00000000 - 0
+     41 - 00000000 - 0
+     42 - 00000000 - 0
+     43 - 00000000 - 0
+     44 - 00000000 - 0
+     45 - 00000000 - 0
+     46 - 00000000 - 0
+     47 - 00000000 - 0
+     48 - 00000000 - 0
+     49 - 00000000 - 0
+     50 - 00000000 - 0
+     51 - 00000000 - 0
+     52 - 00000000 - 0
+     53 - 00000000 - 0
+     54 - 00000000 - 0
+     55 - 00000000 - 0
+     56 - 00000000 - 0
+     57 - 00000000 - 0
+     58 - 00000000 - 0
+     59 - 00000000 - 0
+     60 - 00000000 - 0
+     61 - 00000000 - 0
+     62 - 00000000 - 0
+     63 - 00000000 - 0
+     64 - 00000000 - 0
+     65 - 00000000 - 0
+     66 - 00000000 - 0
+out_stdout: hello
+out_stats: |
+  ticks: 2690
+  instructions: 329
+  interrupts: 5
+  cache read hits: 58
+  cache read misses: 78
+  stop reason: halt
+out_log: |2
+        1 | MAIN | FETCH -> JMP 49            s0 | PS=1     AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        2 | MAIN | JMP 49                     s1 | PS=49    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        3 | MAIN | FETCH -> LD 3              s0 | PS=50    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        4 | MAIN | LD 3                       s1 | PS=50    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        5 | MAIN | FETCH -> ST [0]            s0 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        6 | MAIN | ST [0]                     s1 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        7 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 1/10 wait
+        8 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 2/10 wait
+        9 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 3/10 wait
+       10 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 4/10 wait
+       11 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 5/10 wait
+       12 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 6/10 wait
+       13 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 7/10 wait
+       14 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 8/10 wait
+       15 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 9/10 wait
+       16 | MAIN | ST [0]                     s2 | PS=51    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 10/10
+       17 | MAIN | FETCH -> LD 0              s0 | PS=52    AC=3           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       18 | MAIN | LD 0                       s1 | PS=52    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       19 | MAIN | FETCH -> ST [1]            s0 | PS=53    AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       20 | MAIN | ST [1]                     s1 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       21 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 1/10 wait
+       22 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 2/10 wait
+       23 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 3/10 wait
+       24 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 4/10 wait
+       25 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 5/10 wait
+       26 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 6/10 wait
+       27 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 7/10 wait
+       28 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 8/10 wait
+       29 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 9/10 wait
+       30 | MAIN | ST [1]                     s2 | PS=53    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 10/10
+       31 | MAIN | FETCH -> LD 0              s0 | PS=54    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       32 | MAIN | LD 0                       s1 | PS=54    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       33 | MAIN | FETCH -> ST [2]            s0 | PS=55    AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       34 | MAIN | ST [2]                     s1 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0
+       35 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 1/10 wait
+       36 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 2/10 wait
+       37 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 3/10 wait
+       38 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 4/10 wait
+       39 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 5/10 wait
+       40 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 6/10 wait
+  ... 2640 lines omitted ...
+     2681 | MAIN | LD [SP+0]                  s2 | PS=76    AC=1           SP=65533 DA=65533 | Z0N0P1 IE1 PEND0 | CACHE RD [65533] MISS 10/10
+     2682 | MAIN | LD [SP+0]                  s3 | PS=76    AC=111         SP=65533 DA=65533 | Z0N0P1 IE1 PEND0
+     2683 | MAIN | FETCH -> POP               s0 | PS=77    AC=111         SP=65533 DA=65533 | Z0N0P1 IE1 PEND0
+     2684 | MAIN | POP                        s1 | PS=77    AC=111         SP=65534 DA=65533 | Z0N0P1 IE1 PEND0
+     2685 | MAIN | FETCH -> POP               s0 | PS=78    AC=111         SP=65534 DA=65533 | Z0N0P1 IE1 PEND0
+     2686 | MAIN | POP                        s1 | PS=78    AC=111         SP=65535 DA=65533 | Z0N0P1 IE1 PEND0
+     2687 | MAIN | FETCH -> POP               s0 | PS=79    AC=111         SP=65535 DA=65533 | Z0N0P1 IE1 PEND0
+     2688 | MAIN | POP                        s1 | PS=79    AC=111         SP=65536 DA=65533 | Z0N0P1 IE1 PEND0
+     2689 | MAIN | FETCH -> HLT               s0 | PS=80    AC=111         SP=65536 DA=65533 | Z0N0P1 IE1 PEND0
+     2690 | MAIN | HLT                        s1 | PS=80    AC=111         SP=65536 DA=65533 | Z0N0P1 IE1 PEND0
