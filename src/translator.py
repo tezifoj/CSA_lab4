@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from dataclasses import dataclass
+from typing import Union
 import re
+import sys
+import argparse
 
 
 from isa import (
@@ -871,3 +874,178 @@ class CodeGen:
         if not isinstance(e, Num) or not 0 <= e.value <= PORT_LIMIT:
             raise self.error("номер порта должен быть числовым литералом")
         return e.value
+
+# Программа
+
+@dataclass
+class Program:
+    code: list[Instruction]
+    data: list[int]
+    labels: dict[str, int]
+    origins: list[str]
+    ast: str
+    sources: dict[str, list[str]]
+
+    def code_bytes(self) -> bytes:
+        return b"".join(encode_instruction(i) for i in self.code)
+
+    def data_bytes(self) -> bytes:
+        return b"".join(encode_word(w) for w in self.data)
+
+    def listing(self) -> str:
+        """Отладка: адрес -- HEX -- мнемоника; источник"""
+        names: dict[int, list[str]] = {}
+        for name, index in self.labels.items():
+            names.setdefault(index, []).append(name)
+        lines = [f"; code: {len(self.code)} instructions"]
+        for address, instr in enumerate(self.code):
+            for name in names.get(address, []):
+                if not name.startswith("."):
+                    lines.append(f"; {name}:")
+            text = instruction_to_string(instr)
+            if instr.operand_type == OperandType.ADDRESS and instr.opcode.name.startswith(("J", "CALL")):
+                target = [n for n in names.get(instr.operand, []) if not n.startswith(".")]
+                if target:
+                    text += f" <{target[0]}>"
+            origin = self.origins[address]
+            kind, _, line = origin.partition(":")
+            if kind == "vector":
+                comment = f"; interrupt vector {line}"
+            else:
+                source = self.sources[kind][int(line) - 1].strip()
+                comment = f"; {origin} {source}"
+            lines.append(f"{address:5d} - {encode_instruction(instr).hex()} - {text:<24} {comment}")
+        lines.append(f"; data: {len(self.data)} words")
+        for address, word in enumerate(self.data):
+            shown = f"{word}" + (f" {chr(word)!r}" if 32 <= word < 127 else "")
+            lines.append(f"{address:5d} - {word & 0xFFFFFFFF:08x} - {shown}")
+        return "\n".join(lines) + "\n"
+
+
+def _called_functions(item: Toplevel) -> set[str]:
+    return {n.name for n in iter_nodes(item) if isinstance(n, Call)}
+
+
+def _select_items(
+    user: list[Toplevel], stdlib: list[Toplevel]
+) -> tuple[list[tuple[Toplevel, str]], dict[str, tuple[Defun, str]]]:
+    functions: dict[str, tuple[Defun, str]] = {}
+    for items, origin in ((stdlib, "stdlib"), (user, "user")):
+        for item in items:
+            if isinstance(item, Defun):
+                if item.name in functions:
+                    raise TranslatorError(f"{origin}:{item.line}: повторное определение функции {item.name!r}")
+                functions[item.name] = (item, origin)
+    stdlib_module = [i for i in stdlib if not isinstance(i, Defun)]
+
+    needed: set[str] = set()
+    pending = [i for i in user]
+    module_included = False
+    while pending:
+        item = pending.pop()
+        for name in _called_functions(item):
+            if name in functions and name not in needed:
+                needed.add(name)
+                pending.append(functions[name][0])
+        if not module_included and STDLIB_INPUT_TRIGGER in needed:
+            module_included = True
+            pending.extend(stdlib_module)
+
+    selected: list[tuple[Toplevel, str]] = []
+    for item in stdlib:
+        if isinstance(item, Defun):
+            if item.name in needed:
+                selected.append((item, "stdlib"))
+        elif module_included:
+            selected.append((item, "stdlib"))
+    selected += [(i, "user") for i in user]
+    return selected, functions
+
+
+def translate(source: str, stdlib: str | None = None) -> Program:
+    user_items = Parser("user").parse_program(source)
+    stdlib_items = Parser("stdlib").parse_program(stdlib) if stdlib else []
+    selected, _ = _select_items(user_items, stdlib_items)
+
+    layout = build_layout(selected)
+    functions = {i.name: i for i, _ in selected if isinstance(i, Defun)}
+    for item, origin in selected:
+        if isinstance(item, Define) and item.name in functions:
+            raise TranslatorError(f"{origin}:{item.line}: имя {item.name!r} уже занято функцией")
+    handlers = [(i, o) for i, o in selected if isinstance(i, Defint)]
+    if len(handlers) > 1:
+        raise TranslatorError(f"{handlers[1][1]}:{handlers[1][0].line}: обработчик прерывания уже определён")
+
+    gen = CodeGen(functions, layout)
+    for item, origin in selected:
+        if isinstance(item, Defun):
+            gen.gen_function(item, origin)
+    for item, origin in handlers:
+        gen.gen_interrupt(item, origin)  # type: ignore[arg-type]
+    gen.gen_toplevel(selected)
+
+    vector = [
+        Asm(Opcode.JMP, OperandType.ADDRESS, "start", "vector", 0),
+        Asm(Opcode.JMP, OperandType.ADDRESS, "int_handler", "vector", 1)
+        if handlers
+        else Asm(Opcode.HLT, OperandType.NONE, 0, "vector", 1),
+    ]
+    sequence: list[Asm | str] = [*vector, *gen.items]
+
+    labels: dict[str, int] = {}
+    count = 0
+    for entry in sequence:
+        if isinstance(entry, str):
+            labels[entry] = count
+        else:
+            count += 1
+    code: list[Instruction] = []
+    origins: list[str] = []
+    for entry in sequence:
+        if isinstance(entry, str):
+            continue
+        operand = labels[entry.operand] if isinstance(entry.operand, str) else entry.operand
+        code.append(Instruction(entry.opcode, entry.operand_type, operand, entry.line))
+        origins.append(f"{entry.origin}:{entry.line}")
+    return Program(
+        code=code,
+        data=layout.words,
+        labels=labels,
+        origins=origins,
+        ast=ast_to_string(user_items),
+        sources={"user": source.splitlines(), "stdlib": (stdlib or "").splitlines()},
+    )
+
+# Командная строка
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Транслятор Lisp -> машинный код (acc, harv)")
+    parser.add_argument("source", help="исходный текст программы")
+    parser.add_argument("code", help="выходной бинарный файл команд")
+    parser.add_argument("data", help="выходной бинарный файл данных")
+    parser.add_argument("--listing", help="текстовый листинг (по умолчанию <code>.lst)")
+    parser.add_argument("--ast", help="записать AST программы в файл")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--stdlib", default=str(DEFAULT_STDLIB), help="файл стандартной библиотеки")
+    group.add_argument("--no-stdlib", action="store_true", help="не подключать стандартную библиотеку")
+    args = parser.parse_args(argv)
+
+    try:
+        source = Path(args.source).read_text(encoding="utf-8")
+        stdlib = None if args.no_stdlib else Path(args.stdlib).read_text(encoding="utf-8")
+        program = translate(source, stdlib)
+    except (TranslatorError, OSError) as exc:
+        sys.stderr.write(f"ошибка: {exc}\n")
+        return 1
+
+    Path(args.code).write_bytes(program.code_bytes())
+    Path(args.data).write_bytes(program.data_bytes())
+    Path(args.listing or f"{args.code}.lst").write_text(program.listing(), encoding="utf-8")
+    if args.ast:
+        Path(args.ast).write_text(program.ast, encoding="utf-8")
+    sys.stderr.write(f"команд: {len(program.code)}, слов данных: {len(program.data)}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
