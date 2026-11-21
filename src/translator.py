@@ -77,7 +77,7 @@ DELIMITERS = set(' \t\r\n()";')
 
 @dataclass(frozen=True)
 class Token:
-    type: str  # "(", ")", "num", "char", "str", "sym"
+    kind: str  # "(", ")", "num", "char", "str", "sym"
     value: str | int
     line: int
 
