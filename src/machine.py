@@ -201,6 +201,8 @@ class DataCache:
     def _locate(self, addr: int) -> tuple[int, int, bool]:
         if not 0 <= addr < DATA_MEM_WORDS:
             raise MachineError(f"адрес данных вне памяти: {addr}")
+        if self.lines == 0:
+            return 0, addr, False
         index, tag = addr % self.lines, addr // self.lines
         return index, tag, self.tags[index] == tag
 
@@ -227,20 +229,28 @@ class DataCache:
             return False
         index, tag, _ = self._locate(self.addr)
         if self.is_write:
-            self.writes += 1
-            self.memory[self.addr] = self.value
-            if self.hit:
-                self.words[index] = self.value
+            self._finish_write(index)
         else:
-            if self.hit:
-                self.read_hits += 1
-            else:
-                self.read_misses += 1
-                self.tags[index] = tag
-                self.words[index] = self.memory[self.addr]
-            self.rdata = self.words[index]
+            self._finish_read(index, tag)
         self.busy = False
         return True
+
+    def _finish_write(self, index: int) -> None:
+        self.writes += 1
+        self.memory[self.addr] = self.value
+        if self.hit:
+            self.words[index] = self.value
+
+    def _finish_read(self, index: int, tag: int) -> None:
+        if self.hit:
+            self.read_hits += 1
+            self.rdata = self.words[index]
+            return
+        self.read_misses += 1
+        self.rdata = self.memory[self.addr]
+        if self.lines > 0:  # заполнение строки
+            self.tags[index] = tag
+            self.words[index] = self.rdata
 
     def describe(self) -> str:
         done = self.total - self.remaining
