@@ -1,0 +1,448 @@
+in_source: |
+  ; ввод: натуральное число n
+  ; вывод: число шагов до 1 в последовательности Коллатца
+  (defun digitp (c)
+    (if (< c #\0) 0 (if (> c #\9) 0 1)))
+
+  (defun read-digits (c acc)
+    (if (digitp c)
+        (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+        acc))
+
+  (defun collatz (n steps)
+    (if (= n 1)
+        steps
+        (if (= (% n 2) 0)
+            (collatz (/ n 2) (+ steps 1))
+            (collatz (+ (* n 3) 1) (+ steps 1)))))
+
+  (define n (read-digits (readchar) 0))
+  (printnumber (if (< n 1) -1 (collatz n 0)))
+  (printchar 10)
+in_input: |
+  [(100, '2'), (600, '7'), (1100, '\n')]
+out_ast: |
+  Program
+    Defun digitp(c)
+      body: If
+        cond: BinOp <
+          left: Var c
+          right: Num 48
+        then: Num 0
+        else: If
+          cond: BinOp >
+            left: Var c
+            right: Num 57
+          then: Num 0
+          else: Num 1
+    Defun read-digits(c acc)
+      body: If
+        cond: Call digitp
+          arg: Var c
+        then: Call read-digits
+          arg: Call readchar
+          arg: BinOp +
+            left: BinOp *
+              left: Var acc
+              right: Num 10
+            right: BinOp -
+              left: Var c
+              right: Num 48
+        else: Var acc
+    Defun collatz(n steps)
+      body: If
+        cond: BinOp =
+          left: Var n
+          right: Num 1
+        then: Var steps
+        else: If
+          cond: BinOp =
+            left: BinOp %
+              left: Var n
+              right: Num 2
+            right: Num 0
+          then: Call collatz
+            arg: BinOp /
+              left: Var n
+              right: Num 2
+            arg: BinOp +
+              left: Var steps
+              right: Num 1
+          else: Call collatz
+            arg: BinOp +
+              left: BinOp *
+                left: Var n
+                right: Num 3
+              right: Num 1
+            arg: BinOp +
+              left: Var steps
+              right: Num 1
+    Define n
+      value: Call read-digits
+        arg: Call readchar
+        arg: Num 0
+    Call printnumber
+      arg: If
+        cond: BinOp <
+          left: Var n
+          right: Num 1
+        then: Num -1
+        else: Call collatz
+          arg: Var n
+          arg: Num 0
+    Call printchar
+      arg: Num 10
+out_listing: |
+  ; code: 213 instructions
+      0 - 0802b1000000 - JMP 177 <start>          ; interrupt vector 0
+      1 - 08029d000000 - JMP 157 <int_handler>    ; interrupt vector 1
+  ; fn_printchar:
+      2 - 010301000000 - LD [SP+1]                ; stdlib:2 (port-out 1 c))
+      3 - 210501000000 - OUT 1                    ; stdlib:2 (port-out 1 c))
+      4 - 120000000000 - RET                      ; stdlib:2 (port-out 1 c))
+  ; fn_printdigits:
+      5 - 010301000000 - LD [SP+1]                ; stdlib:18 (if (= n 0)
+      6 - 040100000000 - SUB 0                    ; stdlib:18 (if (= n 0)
+      7 - 0e020a000000 - JNE 10                   ; stdlib:18 (if (= n 0)
+      8 - 010100000000 - LD 0                     ; stdlib:19 0
+      9 - 08021b000000 - JMP 27                   ; stdlib:19 0
+     10 - 010301000000 - LD [SP+1]                ; stdlib:21 (printdigits (/ n 10))
+     11 - 06010a000000 - DIV 10                   ; stdlib:21 (printdigits (/ n 10))
+     12 - 0f0000000000 - PUSH                     ; stdlib:21 (printdigits (/ n 10))
+     13 - 110205000000 - CALL 5 <fn_printdigits>  ; stdlib:21 (printdigits (/ n 10))
+     14 - 100000000000 - POP                      ; stdlib:21 (printdigits (/ n 10))
+     15 - 010130000000 - LD 48                    ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     16 - 0f0000000000 - PUSH                     ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     17 - 010302000000 - LD [SP+2]                ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     18 - 07010a000000 - REM 10                   ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     19 - 0f0000000000 - PUSH                     ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     20 - 010301000000 - LD [SP+1]                ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     21 - 040300000000 - SUB [SP+0]               ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     22 - 100000000000 - POP                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     23 - 100000000000 - POP                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     24 - 0f0000000000 - PUSH                     ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     25 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     26 - 100000000000 - POP                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     27 - 120000000000 - RET                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+  ; fn_printnumber:
+     28 - 010301000000 - LD [SP+1]                ; stdlib:25 (if (< n 0)
+     29 - 040100000000 - SUB 0                    ; stdlib:25 (if (< n 0)
+     30 - 0b0228000000 - JGE 40                   ; stdlib:25 (if (< n 0)
+     31 - 01012d000000 - LD 45                    ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     32 - 0f0000000000 - PUSH                     ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     33 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     34 - 100000000000 - POP                      ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     35 - 010301000000 - LD [SP+1]                ; stdlib:28 (printdigits n))
+     36 - 0f0000000000 - PUSH                     ; stdlib:28 (printdigits n))
+     37 - 110205000000 - CALL 5 <fn_printdigits>  ; stdlib:28 (printdigits n))
+     38 - 100000000000 - POP                      ; stdlib:28 (printdigits n))
+     39 - 080235000000 - JMP 53                   ; stdlib:28 (printdigits n))
+     40 - 010301000000 - LD [SP+1]                ; stdlib:29 (if (= n 0)
+     41 - 040100000000 - SUB 0                    ; stdlib:29 (if (= n 0)
+     42 - 0e0230000000 - JNE 48                   ; stdlib:29 (if (= n 0)
+     43 - 010130000000 - LD 48                    ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     44 - 0f0000000000 - PUSH                     ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     45 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     46 - 100000000000 - POP                      ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     47 - 080235000000 - JMP 53                   ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     48 - 010100000000 - LD 0                     ; stdlib:31 (printdigits (- 0 n)))))
+     49 - 040301000000 - SUB [SP+1]               ; stdlib:31 (printdigits (- 0 n)))))
+     50 - 0f0000000000 - PUSH                     ; stdlib:31 (printdigits (- 0 n)))))
+     51 - 110205000000 - CALL 5 <fn_printdigits>  ; stdlib:31 (printdigits (- 0 n)))))
+     52 - 100000000000 - POP                      ; stdlib:31 (printdigits (- 0 n)))))
+     53 - 120000000000 - RET                      ; stdlib:31 (printdigits (- 0 n)))))
+  ; fn_readchar:
+     54 - 010201000000 - LD [1]                   ; stdlib:44 (if (= in-head in-tail)
+     55 - 040202000000 - SUB [2]                  ; stdlib:44 (if (= in-head in-tail)
+     56 - 0e023b000000 - JNE 59                   ; stdlib:44 (if (= in-head in-tail)
+     57 - 080236000000 - JMP 54 <fn_readchar>     ; stdlib:45 (readchar)
+     58 - 08024d000000 - JMP 77                   ; stdlib:45 (readchar)
+     59 - 010200000000 - LD [0]                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     60 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     61 - 010201000000 - LD [1]                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     62 - 070140000000 - REM 64                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     63 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     64 - 010301000000 - LD [SP+1]                ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     65 - 030300000000 - ADD [SP+0]               ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     66 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     67 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     68 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     69 - 010400000000 - LD [[SP+0]]              ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     70 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     71 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     72 - 010201000000 - LD [1]                   ; stdlib:47 (setq in-head (+ in-head 1))
+     73 - 030101000000 - ADD 1                    ; stdlib:47 (setq in-head (+ in-head 1))
+     74 - 020201000000 - ST [1]                   ; stdlib:47 (setq in-head (+ in-head 1))
+     75 - 010300000000 - LD [SP+0]                ; stdlib:48 c)))
+     76 - 100000000000 - POP                      ; stdlib:48 c)))
+     77 - 120000000000 - RET                      ; stdlib:48 c)))
+  ; fn_digitp:
+     78 - 010301000000 - LD [SP+1]                ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     79 - 040130000000 - SUB 48                   ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     80 - 0b0253000000 - JGE 83                   ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     81 - 010100000000 - LD 0                     ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     82 - 080259000000 - JMP 89                   ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     83 - 010301000000 - LD [SP+1]                ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     84 - 040139000000 - SUB 57                   ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     85 - 0d0258000000 - JLE 88                   ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     86 - 010100000000 - LD 0                     ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     87 - 080259000000 - JMP 89                   ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     88 - 010101000000 - LD 1                     ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     89 - 120000000000 - RET                      ; user:4 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+  ; fn_read-digits:
+     90 - 010302000000 - LD [SP+2]                ; user:7 (if (digitp c)
+     91 - 0f0000000000 - PUSH                     ; user:7 (if (digitp c)
+     92 - 11024e000000 - CALL 78 <fn_digitp>      ; user:7 (if (digitp c)
+     93 - 100000000000 - POP                      ; user:7 (if (digitp c)
+     94 - 040100000000 - SUB 0                    ; user:7 (if (digitp c)
+     95 - 090275000000 - JE 117                   ; user:7 (if (digitp c)
+     96 - 110236000000 - CALL 54 <fn_readchar>    ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+     97 - 0f0000000000 - PUSH                     ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+     98 - 010302000000 - LD [SP+2]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+     99 - 05010a000000 - MUL 10                   ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    100 - 0f0000000000 - PUSH                     ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    101 - 010304000000 - LD [SP+4]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    102 - 040130000000 - SUB 48                   ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    103 - 0f0000000000 - PUSH                     ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    104 - 010301000000 - LD [SP+1]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    105 - 030300000000 - ADD [SP+0]               ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    106 - 100000000000 - POP                      ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    107 - 100000000000 - POP                      ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    108 - 0f0000000000 - PUSH                     ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    109 - 010301000000 - LD [SP+1]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    110 - 020304000000 - ST [SP+4]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    111 - 010300000000 - LD [SP+0]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    112 - 020303000000 - ST [SP+3]                ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    113 - 100000000000 - POP                      ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    114 - 100000000000 - POP                      ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    115 - 08025a000000 - JMP 90 <fn_read-digits>  ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    116 - 080276000000 - JMP 118                  ; user:8 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    117 - 010301000000 - LD [SP+1]                ; user:9 acc))
+    118 - 120000000000 - RET                      ; user:9 acc))
+  ; fn_collatz:
+    119 - 010302000000 - LD [SP+2]                ; user:12 (if (= n 1)
+    120 - 040101000000 - SUB 1                    ; user:12 (if (= n 1)
+    121 - 0e027c000000 - JNE 124                  ; user:12 (if (= n 1)
+    122 - 010301000000 - LD [SP+1]                ; user:13 steps
+    123 - 08029c000000 - JMP 156                  ; user:13 steps
+    124 - 010302000000 - LD [SP+2]                ; user:14 (if (= (% n 2) 0)
+    125 - 070102000000 - REM 2                    ; user:14 (if (= (% n 2) 0)
+    126 - 040100000000 - SUB 0                    ; user:14 (if (= (% n 2) 0)
+    127 - 0e028e000000 - JNE 142                  ; user:14 (if (= (% n 2) 0)
+    128 - 010302000000 - LD [SP+2]                ; user:15 (collatz (/ n 2) (+ steps 1))
+    129 - 060102000000 - DIV 2                    ; user:15 (collatz (/ n 2) (+ steps 1))
+    130 - 0f0000000000 - PUSH                     ; user:15 (collatz (/ n 2) (+ steps 1))
+    131 - 010302000000 - LD [SP+2]                ; user:15 (collatz (/ n 2) (+ steps 1))
+    132 - 030101000000 - ADD 1                    ; user:15 (collatz (/ n 2) (+ steps 1))
+    133 - 0f0000000000 - PUSH                     ; user:15 (collatz (/ n 2) (+ steps 1))
+    134 - 010301000000 - LD [SP+1]                ; user:15 (collatz (/ n 2) (+ steps 1))
+    135 - 020304000000 - ST [SP+4]                ; user:15 (collatz (/ n 2) (+ steps 1))
+    136 - 010300000000 - LD [SP+0]                ; user:15 (collatz (/ n 2) (+ steps 1))
+    137 - 020303000000 - ST [SP+3]                ; user:15 (collatz (/ n 2) (+ steps 1))
+    138 - 100000000000 - POP                      ; user:15 (collatz (/ n 2) (+ steps 1))
+    139 - 100000000000 - POP                      ; user:15 (collatz (/ n 2) (+ steps 1))
+    140 - 080277000000 - JMP 119 <fn_collatz>     ; user:15 (collatz (/ n 2) (+ steps 1))
+    141 - 08029c000000 - JMP 156                  ; user:15 (collatz (/ n 2) (+ steps 1))
+    142 - 010302000000 - LD [SP+2]                ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    143 - 050103000000 - MUL 3                    ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    144 - 030101000000 - ADD 1                    ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    145 - 0f0000000000 - PUSH                     ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    146 - 010302000000 - LD [SP+2]                ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    147 - 030101000000 - ADD 1                    ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    148 - 0f0000000000 - PUSH                     ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    149 - 010301000000 - LD [SP+1]                ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    150 - 020304000000 - ST [SP+4]                ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    151 - 010300000000 - LD [SP+0]                ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    152 - 020303000000 - ST [SP+3]                ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    153 - 100000000000 - POP                      ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    154 - 100000000000 - POP                      ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    155 - 080277000000 - JMP 119 <fn_collatz>     ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+    156 - 120000000000 - RET                      ; user:16 (collatz (+ (* n 3) 1) (+ steps 1)))))
+  ; int_handler:
+    157 - 0f0000000000 - PUSH                     ; stdlib:38 (defint on-input ()
+    158 - 010200000000 - LD [0]                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    159 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    160 - 010202000000 - LD [2]                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    161 - 070140000000 - REM 64                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    162 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    163 - 010301000000 - LD [SP+1]                ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    164 - 030300000000 - ADD [SP+0]               ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    165 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    166 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    167 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    168 - 200500000000 - IN 0                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    169 - 020400000000 - ST [[SP+0]]              ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    170 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    171 - 010202000000 - LD [2]                   ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    172 - 030101000000 - ADD 1                    ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    173 - 020202000000 - ST [2]                   ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    174 - 010300000000 - LD [SP+0]                ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    175 - 100000000000 - POP                      ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    176 - 320000000000 - IRET                     ; stdlib:41 (setq in-tail (+ in-tail 1))))
+  ; start:
+    177 - 010104000000 - LD 4                     ; stdlib:34 (define in-buf (makestring 64))
+    178 - 020200000000 - ST [0]                   ; stdlib:34 (define in-buf (makestring 64))
+    179 - 010100000000 - LD 0                     ; stdlib:35 (define in-head 0)
+    180 - 020201000000 - ST [1]                   ; stdlib:35 (define in-head 0)
+    181 - 010100000000 - LD 0                     ; stdlib:36 (define in-tail 0)
+    182 - 020202000000 - ST [2]                   ; stdlib:36 (define in-tail 0)
+    183 - 300000000000 - EI                       ; stdlib:62 (ei)
+    184 - 010100000000 - LD 0                     ; stdlib:62 (ei)
+    185 - 110236000000 - CALL 54 <fn_readchar>    ; user:18 (define n (read-digits (readchar) 0))
+    186 - 0f0000000000 - PUSH                     ; user:18 (define n (read-digits (readchar) 0))
+    187 - 010100000000 - LD 0                     ; user:18 (define n (read-digits (readchar) 0))
+    188 - 0f0000000000 - PUSH                     ; user:18 (define n (read-digits (readchar) 0))
+    189 - 11025a000000 - CALL 90 <fn_read-digits> ; user:18 (define n (read-digits (readchar) 0))
+    190 - 100000000000 - POP                      ; user:18 (define n (read-digits (readchar) 0))
+    191 - 100000000000 - POP                      ; user:18 (define n (read-digits (readchar) 0))
+    192 - 020203000000 - ST [3]                   ; user:18 (define n (read-digits (readchar) 0))
+    193 - 010203000000 - LD [3]                   ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    194 - 040101000000 - SUB 1                    ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    195 - 0b02c6000000 - JGE 198                  ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    196 - 0101ffffffff - LD -1                    ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    197 - 0802cd000000 - JMP 205                  ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    198 - 010203000000 - LD [3]                   ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    199 - 0f0000000000 - PUSH                     ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    200 - 010100000000 - LD 0                     ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    201 - 0f0000000000 - PUSH                     ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    202 - 110277000000 - CALL 119 <fn_collatz>    ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    203 - 100000000000 - POP                      ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    204 - 100000000000 - POP                      ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    205 - 0f0000000000 - PUSH                     ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    206 - 11021c000000 - CALL 28 <fn_printnumber> ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    207 - 100000000000 - POP                      ; user:19 (printnumber (if (< n 1) -1 (collatz n 0)))
+    208 - 01010a000000 - LD 10                    ; user:20 (printchar 10)
+    209 - 0f0000000000 - PUSH                     ; user:20 (printchar 10)
+    210 - 110202000000 - CALL 2 <fn_printchar>    ; user:20 (printchar 10)
+    211 - 100000000000 - POP                      ; user:20 (printchar 10)
+    212 - 130000000000 - HLT                      ; user:20 (printchar 10)
+  ; data: 68 words
+      0 - 00000000 - 0
+      1 - 00000000 - 0
+      2 - 00000000 - 0
+      3 - 00000000 - 0
+      4 - 00000000 - 0
+      5 - 00000000 - 0
+      6 - 00000000 - 0
+      7 - 00000000 - 0
+      8 - 00000000 - 0
+      9 - 00000000 - 0
+     10 - 00000000 - 0
+     11 - 00000000 - 0
+     12 - 00000000 - 0
+     13 - 00000000 - 0
+     14 - 00000000 - 0
+     15 - 00000000 - 0
+     16 - 00000000 - 0
+     17 - 00000000 - 0
+     18 - 00000000 - 0
+     19 - 00000000 - 0
+     20 - 00000000 - 0
+     21 - 00000000 - 0
+     22 - 00000000 - 0
+     23 - 00000000 - 0
+     24 - 00000000 - 0
+     25 - 00000000 - 0
+     26 - 00000000 - 0
+     27 - 00000000 - 0
+     28 - 00000000 - 0
+     29 - 00000000 - 0
+     30 - 00000000 - 0
+     31 - 00000000 - 0
+     32 - 00000000 - 0
+     33 - 00000000 - 0
+     34 - 00000000 - 0
+     35 - 00000000 - 0
+     36 - 00000000 - 0
+     37 - 00000000 - 0
+     38 - 00000000 - 0
+     39 - 00000000 - 0
+     40 - 00000000 - 0
+     41 - 00000000 - 0
+     42 - 00000000 - 0
+     43 - 00000000 - 0
+     44 - 00000000 - 0
+     45 - 00000000 - 0
+     46 - 00000000 - 0
+     47 - 00000000 - 0
+     48 - 00000000 - 0
+     49 - 00000000 - 0
+     50 - 00000000 - 0
+     51 - 00000000 - 0
+     52 - 00000000 - 0
+     53 - 00000000 - 0
+     54 - 00000000 - 0
+     55 - 00000000 - 0
+     56 - 00000000 - 0
+     57 - 00000000 - 0
+     58 - 00000000 - 0
+     59 - 00000000 - 0
+     60 - 00000000 - 0
+     61 - 00000000 - 0
+     62 - 00000000 - 0
+     63 - 00000000 - 0
+     64 - 00000000 - 0
+     65 - 00000000 - 0
+     66 - 00000000 - 0
+     67 - 00000000 - 0
+out_stdout: |
+  111
+out_stats: |
+  ticks: 15202
+  instructions: 2614
+  interrupts: 3
+  cache read hits: 494
+  cache read misses: 298
+  stop reason: halt
+out_log: |2
+        1 | MAIN | FETCH -> JMP 177           s0 | PS=1     AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        2 | MAIN | JMP 177                    s1 | PS=177   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        3 | MAIN | FETCH -> LD 4              s0 | PS=178   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        4 | MAIN | LD 4                       s1 | PS=178   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        5 | MAIN | FETCH -> ST [0]            s0 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        6 | MAIN | ST [0]                     s1 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        7 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 1/10 wait
+        8 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 2/10 wait
+        9 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 3/10 wait
+       10 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 4/10 wait
+       11 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 5/10 wait
+       12 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 6/10 wait
+       13 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 7/10 wait
+       14 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 8/10 wait
+       15 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 9/10 wait
+       16 | MAIN | ST [0]                     s2 | PS=179   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 10/10
+       17 | MAIN | FETCH -> LD 0              s0 | PS=180   AC=4           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       18 | MAIN | LD 0                       s1 | PS=180   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       19 | MAIN | FETCH -> ST [1]            s0 | PS=181   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       20 | MAIN | ST [1]                     s1 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       21 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 1/10 wait
+       22 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 2/10 wait
+       23 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 3/10 wait
+       24 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 4/10 wait
+       25 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 5/10 wait
+       26 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 6/10 wait
+       27 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 7/10 wait
+       28 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 8/10 wait
+       29 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 9/10 wait
+       30 | MAIN | ST [1]                     s2 | PS=181   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 10/10
+       31 | MAIN | FETCH -> LD 0              s0 | PS=182   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       32 | MAIN | LD 0                       s1 | PS=182   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       33 | MAIN | FETCH -> ST [2]            s0 | PS=183   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       34 | MAIN | ST [2]                     s1 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0
+       35 | MAIN | ST [2]                     s2 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 1/10 wait
+       36 | MAIN | ST [2]                     s2 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 2/10 wait
+       37 | MAIN | ST [2]                     s2 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 3/10 wait
+       38 | MAIN | ST [2]                     s2 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 4/10 wait
+       39 | MAIN | ST [2]                     s2 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 5/10 wait
+       40 | MAIN | ST [2]                     s2 | PS=183   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 6/10 wait
+  ... 15152 lines omitted ...
+    15193 | MAIN | FETCH -> OUT 1             s0 | PS=4     AC=10          SP=65534 DA=65535 | Z0N0P1 IE1 PEND0
+    15194 | MAIN | OUT 1                      s1 | PS=4     AC=10          SP=65534 DA=65535 | Z0N0P1 IE1 PEND0 | OUT port 1 <- '\n'
+    15195 | MAIN | FETCH -> RET               s0 | PS=5     AC=10          SP=65534 DA=65535 | Z0N0P1 IE1 PEND0
+    15196 | MAIN | RET                        s1 | PS=5     AC=10          SP=65534 DA=65534 | Z0N0P1 IE1 PEND0
+    15197 | MAIN | RET                        s2 | PS=5     AC=10          SP=65534 DA=65534 | Z0N0P1 IE1 PEND0 | CACHE RD [65534] HIT 1/1
+    15198 | MAIN | RET                        s3 | PS=211   AC=10          SP=65535 DA=65534 | Z0N0P1 IE1 PEND0
+    15199 | MAIN | FETCH -> POP               s0 | PS=212   AC=10          SP=65535 DA=65534 | Z0N0P1 IE1 PEND0
+    15200 | MAIN | POP                        s1 | PS=212   AC=10          SP=65536 DA=65534 | Z0N0P1 IE1 PEND0
+    15201 | MAIN | FETCH -> HLT               s0 | PS=213   AC=10          SP=65536 DA=65534 | Z0N0P1 IE1 PEND0
+    15202 | MAIN | HLT                        s1 | PS=213   AC=10          SP=65536 DA=65534 | Z0N0P1 IE1 PEND0

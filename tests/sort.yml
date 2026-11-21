@@ -1,0 +1,724 @@
+in_source: |
+  ; ввод: целые числа через пробел, конец списка -- перенос строки
+  ; вывод: те же числа по возрастанию
+  (define nums (makestring 32))
+  (define count 0)
+  (define last 0)
+
+  (defun digitp (c)
+    (if (< c #\0) 0 (if (> c #\9) 0 1)))
+
+  (defun skip-spaces (c)
+    (if (= c 32) (skip-spaces (readchar)) c))
+
+  ; читает цифры, начиная с символа c; символ после числа кладёт в last
+  (defun read-digits (c acc)
+    (if (digitp c)
+        (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+        (progn (setq last c) acc)))
+
+  (defun read-number (c)
+    (if (= c #\-)
+        (- 0 (read-digits (readchar) 0))
+        (read-digits c 0)))
+
+  (defun read-list (c)
+    (let ((d (skip-spaces c)))
+      (if (= d 10)
+          count
+          (progn
+            (setchar nums count (read-number d))
+            (setq count (+ count 1))
+            (read-list last)))))
+
+  (read-list (readchar))
+
+  ; сортировка пузырьком
+  (loop for i from 0 to (- count 2) do
+    (loop for j from 0 to (- count (+ i 2)) do
+      (let ((a (getchar nums j))
+            (b (getchar nums (+ j 1))))
+        (if (> a b)
+            (progn (setchar nums j b) (setchar nums (+ j 1) a))
+            0))))
+
+  (loop for i from 0 to (- count 1) do
+    (progn
+      (if (> i 0) (printchar 32) 0)
+      (printnumber (getchar nums i))))
+  (printchar 10)
+in_input: '[(100, ''5''), (600, '' ''), (1100, ''-''), (1600, ''3''), (2100, '' ''), (2600, ''1''), (3100, ''2''), (3600, '' ''), (4100, ''0''), (4600, '' ''), (5100, ''7''), (5600, '' ''), (6100, ''-''), (6600, ''1''), (7100, ''0''), (7600, '' ''), (8100, ''4''), (8600, ''\n'')]'
+out_ast: |
+  Program
+    Define nums
+      value: Call makestring
+        arg: Num 32
+    Define count
+      value: Num 0
+    Define last
+      value: Num 0
+    Defun digitp(c)
+      body: If
+        cond: BinOp <
+          left: Var c
+          right: Num 48
+        then: Num 0
+        else: If
+          cond: BinOp >
+            left: Var c
+            right: Num 57
+          then: Num 0
+          else: Num 1
+    Defun skip-spaces(c)
+      body: If
+        cond: BinOp =
+          left: Var c
+          right: Num 32
+        then: Call skip-spaces
+          arg: Call readchar
+        else: Var c
+    Defun read-digits(c acc)
+      body: If
+        cond: Call digitp
+          arg: Var c
+        then: Call read-digits
+          arg: Call readchar
+          arg: BinOp +
+            left: BinOp *
+              left: Var acc
+              right: Num 10
+            right: BinOp -
+              left: Var c
+              right: Num 48
+        else: Progn
+          Setq last
+            value: Var c
+          Var acc
+    Defun read-number(c)
+      body: If
+        cond: BinOp =
+          left: Var c
+          right: Num 45
+        then: BinOp -
+          left: Num 0
+          right: Call read-digits
+            arg: Call readchar
+            arg: Num 0
+        else: Call read-digits
+          arg: Var c
+          arg: Num 0
+    Defun read-list(c)
+      body: Let
+        bind d: Call skip-spaces
+          arg: Var c
+        body: If
+          cond: BinOp =
+            left: Var d
+            right: Num 10
+          then: Var count
+          else: Progn
+            Call setchar
+              arg: Var nums
+              arg: Var count
+              arg: Call read-number
+                arg: Var d
+            Setq count
+              value: BinOp +
+                left: Var count
+                right: Num 1
+            Call read-list
+              arg: Var last
+    Call read-list
+      arg: Call readchar
+    Loop i
+      from: Num 0
+      to: BinOp -
+        left: Var count
+        right: Num 2
+      do: Loop j
+        from: Num 0
+        to: BinOp -
+          left: Var count
+          right: BinOp +
+            left: Var i
+            right: Num 2
+        do: Let
+          bind a: Call getchar
+            arg: Var nums
+            arg: Var j
+          bind b: Call getchar
+            arg: Var nums
+            arg: BinOp +
+              left: Var j
+              right: Num 1
+          body: If
+            cond: BinOp >
+              left: Var a
+              right: Var b
+            then: Progn
+              Call setchar
+                arg: Var nums
+                arg: Var j
+                arg: Var b
+              Call setchar
+                arg: Var nums
+                arg: BinOp +
+                  left: Var j
+                  right: Num 1
+                arg: Var a
+            else: Num 0
+    Loop i
+      from: Num 0
+      to: BinOp -
+        left: Var count
+        right: Num 1
+      do: Progn
+        If
+          cond: BinOp >
+            left: Var i
+            right: Num 0
+          then: Call printchar
+            arg: Num 32
+          else: Num 0
+        Call printnumber
+          arg: Call getchar
+            arg: Var nums
+            arg: Var i
+    Call printchar
+      arg: Num 10
+out_listing: |
+  ; code: 359 instructions
+      0 - 0802d2000000 - JMP 210 <start>          ; interrupt vector 0
+      1 - 0802be000000 - JMP 190 <int_handler>    ; interrupt vector 1
+  ; fn_printchar:
+      2 - 010301000000 - LD [SP+1]                ; stdlib:2 (port-out 1 c))
+      3 - 210501000000 - OUT 1                    ; stdlib:2 (port-out 1 c))
+      4 - 120000000000 - RET                      ; stdlib:2 (port-out 1 c))
+  ; fn_printdigits:
+      5 - 010301000000 - LD [SP+1]                ; stdlib:18 (if (= n 0)
+      6 - 040100000000 - SUB 0                    ; stdlib:18 (if (= n 0)
+      7 - 0e020a000000 - JNE 10                   ; stdlib:18 (if (= n 0)
+      8 - 010100000000 - LD 0                     ; stdlib:19 0
+      9 - 08021b000000 - JMP 27                   ; stdlib:19 0
+     10 - 010301000000 - LD [SP+1]                ; stdlib:21 (printdigits (/ n 10))
+     11 - 06010a000000 - DIV 10                   ; stdlib:21 (printdigits (/ n 10))
+     12 - 0f0000000000 - PUSH                     ; stdlib:21 (printdigits (/ n 10))
+     13 - 110205000000 - CALL 5 <fn_printdigits>  ; stdlib:21 (printdigits (/ n 10))
+     14 - 100000000000 - POP                      ; stdlib:21 (printdigits (/ n 10))
+     15 - 010130000000 - LD 48                    ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     16 - 0f0000000000 - PUSH                     ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     17 - 010302000000 - LD [SP+2]                ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     18 - 07010a000000 - REM 10                   ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     19 - 0f0000000000 - PUSH                     ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     20 - 010301000000 - LD [SP+1]                ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     21 - 040300000000 - SUB [SP+0]               ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     22 - 100000000000 - POP                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     23 - 100000000000 - POP                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     24 - 0f0000000000 - PUSH                     ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     25 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     26 - 100000000000 - POP                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+     27 - 120000000000 - RET                      ; stdlib:22 (printchar (- #\0 (% n 10))))))
+  ; fn_printnumber:
+     28 - 010301000000 - LD [SP+1]                ; stdlib:25 (if (< n 0)
+     29 - 040100000000 - SUB 0                    ; stdlib:25 (if (< n 0)
+     30 - 0b0228000000 - JGE 40                   ; stdlib:25 (if (< n 0)
+     31 - 01012d000000 - LD 45                    ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     32 - 0f0000000000 - PUSH                     ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     33 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     34 - 100000000000 - POP                      ; stdlib:27 (printchar #\-)                   ; если число отрицательное, печатаем '-'
+     35 - 010301000000 - LD [SP+1]                ; stdlib:28 (printdigits n))
+     36 - 0f0000000000 - PUSH                     ; stdlib:28 (printdigits n))
+     37 - 110205000000 - CALL 5 <fn_printdigits>  ; stdlib:28 (printdigits n))
+     38 - 100000000000 - POP                      ; stdlib:28 (printdigits n))
+     39 - 080235000000 - JMP 53                   ; stdlib:28 (printdigits n))
+     40 - 010301000000 - LD [SP+1]                ; stdlib:29 (if (= n 0)
+     41 - 040100000000 - SUB 0                    ; stdlib:29 (if (= n 0)
+     42 - 0e0230000000 - JNE 48                   ; stdlib:29 (if (= n 0)
+     43 - 010130000000 - LD 48                    ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     44 - 0f0000000000 - PUSH                     ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     45 - 110202000000 - CALL 2 <fn_printchar>    ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     46 - 100000000000 - POP                      ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     47 - 080235000000 - JMP 53                   ; stdlib:30 (printchar #\0)                 ; если 0, печатаем '0'
+     48 - 010100000000 - LD 0                     ; stdlib:31 (printdigits (- 0 n)))))
+     49 - 040301000000 - SUB [SP+1]               ; stdlib:31 (printdigits (- 0 n)))))
+     50 - 0f0000000000 - PUSH                     ; stdlib:31 (printdigits (- 0 n)))))
+     51 - 110205000000 - CALL 5 <fn_printdigits>  ; stdlib:31 (printdigits (- 0 n)))))
+     52 - 100000000000 - POP                      ; stdlib:31 (printdigits (- 0 n)))))
+     53 - 120000000000 - RET                      ; stdlib:31 (printdigits (- 0 n)))))
+  ; fn_readchar:
+     54 - 010201000000 - LD [1]                   ; stdlib:44 (if (= in-head in-tail)
+     55 - 040202000000 - SUB [2]                  ; stdlib:44 (if (= in-head in-tail)
+     56 - 0e023b000000 - JNE 59                   ; stdlib:44 (if (= in-head in-tail)
+     57 - 080236000000 - JMP 54 <fn_readchar>     ; stdlib:45 (readchar)
+     58 - 08024d000000 - JMP 77                   ; stdlib:45 (readchar)
+     59 - 010200000000 - LD [0]                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     60 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     61 - 010201000000 - LD [1]                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     62 - 070140000000 - REM 64                   ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     63 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     64 - 010301000000 - LD [SP+1]                ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     65 - 030300000000 - ADD [SP+0]               ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     66 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     67 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     68 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     69 - 010400000000 - LD [[SP+0]]              ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     70 - 100000000000 - POP                      ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     71 - 0f0000000000 - PUSH                     ; stdlib:46 (let ((c (getchar in-buf (% in-head 64))))
+     72 - 010201000000 - LD [1]                   ; stdlib:47 (setq in-head (+ in-head 1))
+     73 - 030101000000 - ADD 1                    ; stdlib:47 (setq in-head (+ in-head 1))
+     74 - 020201000000 - ST [1]                   ; stdlib:47 (setq in-head (+ in-head 1))
+     75 - 010300000000 - LD [SP+0]                ; stdlib:48 c)))
+     76 - 100000000000 - POP                      ; stdlib:48 c)))
+     77 - 120000000000 - RET                      ; stdlib:48 c)))
+  ; fn_digitp:
+     78 - 010301000000 - LD [SP+1]                ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     79 - 040130000000 - SUB 48                   ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     80 - 0b0253000000 - JGE 83                   ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     81 - 010100000000 - LD 0                     ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     82 - 080259000000 - JMP 89                   ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     83 - 010301000000 - LD [SP+1]                ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     84 - 040139000000 - SUB 57                   ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     85 - 0d0258000000 - JLE 88                   ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     86 - 010100000000 - LD 0                     ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     87 - 080259000000 - JMP 89                   ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     88 - 010101000000 - LD 1                     ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+     89 - 120000000000 - RET                      ; user:8 (if (< c #\0) 0 (if (> c #\9) 0 1)))
+  ; fn_skip-spaces:
+     90 - 010301000000 - LD [SP+1]                ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     91 - 040120000000 - SUB 32                   ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     92 - 0e0264000000 - JNE 100                  ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     93 - 110236000000 - CALL 54 <fn_readchar>    ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     94 - 0f0000000000 - PUSH                     ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     95 - 010300000000 - LD [SP+0]                ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     96 - 020302000000 - ST [SP+2]                ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     97 - 100000000000 - POP                      ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     98 - 08025a000000 - JMP 90 <fn_skip-spaces>  ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+     99 - 080265000000 - JMP 101                  ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+    100 - 010301000000 - LD [SP+1]                ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+    101 - 120000000000 - RET                      ; user:11 (if (= c 32) (skip-spaces (readchar)) c))
+  ; fn_read-digits:
+    102 - 010302000000 - LD [SP+2]                ; user:15 (if (digitp c)
+    103 - 0f0000000000 - PUSH                     ; user:15 (if (digitp c)
+    104 - 11024e000000 - CALL 78 <fn_digitp>      ; user:15 (if (digitp c)
+    105 - 100000000000 - POP                      ; user:15 (if (digitp c)
+    106 - 040100000000 - SUB 0                    ; user:15 (if (digitp c)
+    107 - 090281000000 - JE 129                   ; user:15 (if (digitp c)
+    108 - 110236000000 - CALL 54 <fn_readchar>    ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    109 - 0f0000000000 - PUSH                     ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    110 - 010302000000 - LD [SP+2]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    111 - 05010a000000 - MUL 10                   ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    112 - 0f0000000000 - PUSH                     ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    113 - 010304000000 - LD [SP+4]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    114 - 040130000000 - SUB 48                   ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    115 - 0f0000000000 - PUSH                     ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    116 - 010301000000 - LD [SP+1]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    117 - 030300000000 - ADD [SP+0]               ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    118 - 100000000000 - POP                      ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    119 - 100000000000 - POP                      ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    120 - 0f0000000000 - PUSH                     ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    121 - 010301000000 - LD [SP+1]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    122 - 020304000000 - ST [SP+4]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    123 - 010300000000 - LD [SP+0]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    124 - 020303000000 - ST [SP+3]                ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    125 - 100000000000 - POP                      ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    126 - 100000000000 - POP                      ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    127 - 080266000000 - JMP 102 <fn_read-digits> ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    128 - 080284000000 - JMP 132                  ; user:16 (read-digits (readchar) (+ (* acc 10) (- c #\0)))
+    129 - 010302000000 - LD [SP+2]                ; user:17 (progn (setq last c) acc)))
+    130 - 020205000000 - ST [5]                   ; user:17 (progn (setq last c) acc)))
+    131 - 010301000000 - LD [SP+1]                ; user:17 (progn (setq last c) acc)))
+    132 - 120000000000 - RET                      ; user:17 (progn (setq last c) acc)))
+  ; fn_read-number:
+    133 - 010301000000 - LD [SP+1]                ; user:20 (if (= c #\-)
+    134 - 04012d000000 - SUB 45                   ; user:20 (if (= c #\-)
+    135 - 0e0297000000 - JNE 151                  ; user:20 (if (= c #\-)
+    136 - 010100000000 - LD 0                     ; user:21 (- 0 (read-digits (readchar) 0))
+    137 - 0f0000000000 - PUSH                     ; user:21 (- 0 (read-digits (readchar) 0))
+    138 - 110236000000 - CALL 54 <fn_readchar>    ; user:21 (- 0 (read-digits (readchar) 0))
+    139 - 0f0000000000 - PUSH                     ; user:21 (- 0 (read-digits (readchar) 0))
+    140 - 010100000000 - LD 0                     ; user:21 (- 0 (read-digits (readchar) 0))
+    141 - 0f0000000000 - PUSH                     ; user:21 (- 0 (read-digits (readchar) 0))
+    142 - 110266000000 - CALL 102 <fn_read-digits> ; user:21 (- 0 (read-digits (readchar) 0))
+    143 - 100000000000 - POP                      ; user:21 (- 0 (read-digits (readchar) 0))
+    144 - 100000000000 - POP                      ; user:21 (- 0 (read-digits (readchar) 0))
+    145 - 0f0000000000 - PUSH                     ; user:21 (- 0 (read-digits (readchar) 0))
+    146 - 010301000000 - LD [SP+1]                ; user:21 (- 0 (read-digits (readchar) 0))
+    147 - 040300000000 - SUB [SP+0]               ; user:21 (- 0 (read-digits (readchar) 0))
+    148 - 100000000000 - POP                      ; user:21 (- 0 (read-digits (readchar) 0))
+    149 - 100000000000 - POP                      ; user:21 (- 0 (read-digits (readchar) 0))
+    150 - 08029e000000 - JMP 158                  ; user:21 (- 0 (read-digits (readchar) 0))
+    151 - 010301000000 - LD [SP+1]                ; user:22 (read-digits c 0)))
+    152 - 0f0000000000 - PUSH                     ; user:22 (read-digits c 0)))
+    153 - 010100000000 - LD 0                     ; user:22 (read-digits c 0)))
+    154 - 0f0000000000 - PUSH                     ; user:22 (read-digits c 0)))
+    155 - 110266000000 - CALL 102 <fn_read-digits> ; user:22 (read-digits c 0)))
+    156 - 100000000000 - POP                      ; user:22 (read-digits c 0)))
+    157 - 100000000000 - POP                      ; user:22 (read-digits c 0)))
+    158 - 120000000000 - RET                      ; user:22 (read-digits c 0)))
+  ; fn_read-list:
+    159 - 010301000000 - LD [SP+1]                ; user:25 (let ((d (skip-spaces c)))
+    160 - 0f0000000000 - PUSH                     ; user:25 (let ((d (skip-spaces c)))
+    161 - 11025a000000 - CALL 90 <fn_skip-spaces> ; user:25 (let ((d (skip-spaces c)))
+    162 - 100000000000 - POP                      ; user:25 (let ((d (skip-spaces c)))
+    163 - 0f0000000000 - PUSH                     ; user:25 (let ((d (skip-spaces c)))
+    164 - 010300000000 - LD [SP+0]                ; user:26 (if (= d 10)
+    165 - 04010a000000 - SUB 10                   ; user:26 (if (= d 10)
+    166 - 0e02a9000000 - JNE 169                  ; user:26 (if (= d 10)
+    167 - 010204000000 - LD [4]                   ; user:27 count
+    168 - 0802bc000000 - JMP 188                  ; user:27 count
+    169 - 010203000000 - LD [3]                   ; user:29 (setchar nums count (read-number d))
+    170 - 030204000000 - ADD [4]                  ; user:29 (setchar nums count (read-number d))
+    171 - 0f0000000000 - PUSH                     ; user:29 (setchar nums count (read-number d))
+    172 - 010301000000 - LD [SP+1]                ; user:29 (setchar nums count (read-number d))
+    173 - 0f0000000000 - PUSH                     ; user:29 (setchar nums count (read-number d))
+    174 - 110285000000 - CALL 133 <fn_read-number> ; user:29 (setchar nums count (read-number d))
+    175 - 100000000000 - POP                      ; user:29 (setchar nums count (read-number d))
+    176 - 020400000000 - ST [[SP+0]]              ; user:29 (setchar nums count (read-number d))
+    177 - 100000000000 - POP                      ; user:29 (setchar nums count (read-number d))
+    178 - 010204000000 - LD [4]                   ; user:30 (setq count (+ count 1))
+    179 - 030101000000 - ADD 1                    ; user:30 (setq count (+ count 1))
+    180 - 020204000000 - ST [4]                   ; user:30 (setq count (+ count 1))
+    181 - 010205000000 - LD [5]                   ; user:31 (read-list last)))))
+    182 - 0f0000000000 - PUSH                     ; user:31 (read-list last)))))
+    183 - 010300000000 - LD [SP+0]                ; user:31 (read-list last)))))
+    184 - 020303000000 - ST [SP+3]                ; user:31 (read-list last)))))
+    185 - 100000000000 - POP                      ; user:31 (read-list last)))))
+    186 - 100000000000 - POP                      ; user:31 (read-list last)))))
+    187 - 08029f000000 - JMP 159 <fn_read-list>   ; user:31 (read-list last)))))
+    188 - 100000000000 - POP                      ; user:31 (read-list last)))))
+    189 - 120000000000 - RET                      ; user:31 (read-list last)))))
+  ; int_handler:
+    190 - 0f0000000000 - PUSH                     ; stdlib:38 (defint on-input ()
+    191 - 010200000000 - LD [0]                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    192 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    193 - 010202000000 - LD [2]                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    194 - 070140000000 - REM 64                   ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    195 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    196 - 010301000000 - LD [SP+1]                ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    197 - 030300000000 - ADD [SP+0]               ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    198 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    199 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    200 - 0f0000000000 - PUSH                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    201 - 200500000000 - IN 0                     ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    202 - 020400000000 - ST [[SP+0]]              ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    203 - 100000000000 - POP                      ; stdlib:40 (setchar in-buf (% in-tail 64) (port-in 0))
+    204 - 010202000000 - LD [2]                   ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    205 - 030101000000 - ADD 1                    ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    206 - 020202000000 - ST [2]                   ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    207 - 010300000000 - LD [SP+0]                ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    208 - 100000000000 - POP                      ; stdlib:41 (setq in-tail (+ in-tail 1))))
+    209 - 320000000000 - IRET                     ; stdlib:41 (setq in-tail (+ in-tail 1))))
+  ; start:
+    210 - 010106000000 - LD 6                     ; stdlib:34 (define in-buf (makestring 64))
+    211 - 020200000000 - ST [0]                   ; stdlib:34 (define in-buf (makestring 64))
+    212 - 010100000000 - LD 0                     ; stdlib:35 (define in-head 0)
+    213 - 020201000000 - ST [1]                   ; stdlib:35 (define in-head 0)
+    214 - 010100000000 - LD 0                     ; stdlib:36 (define in-tail 0)
+    215 - 020202000000 - ST [2]                   ; stdlib:36 (define in-tail 0)
+    216 - 300000000000 - EI                       ; stdlib:62 (ei)
+    217 - 010100000000 - LD 0                     ; stdlib:62 (ei)
+    218 - 010146000000 - LD 70                    ; user:3 (define nums (makestring 32))
+    219 - 020203000000 - ST [3]                   ; user:3 (define nums (makestring 32))
+    220 - 010100000000 - LD 0                     ; user:4 (define count 0)
+    221 - 020204000000 - ST [4]                   ; user:4 (define count 0)
+    222 - 010100000000 - LD 0                     ; user:5 (define last 0)
+    223 - 020205000000 - ST [5]                   ; user:5 (define last 0)
+    224 - 110236000000 - CALL 54 <fn_readchar>    ; user:33 (read-list (readchar))
+    225 - 0f0000000000 - PUSH                     ; user:33 (read-list (readchar))
+    226 - 11029f000000 - CALL 159 <fn_read-list>  ; user:33 (read-list (readchar))
+    227 - 100000000000 - POP                      ; user:33 (read-list (readchar))
+    228 - 010100000000 - LD 0                     ; user:36 (loop for i from 0 to (- count 2) do
+    229 - 0f0000000000 - PUSH                     ; user:36 (loop for i from 0 to (- count 2) do
+    230 - 010204000000 - LD [4]                   ; user:36 (loop for i from 0 to (- count 2) do
+    231 - 040102000000 - SUB 2                    ; user:36 (loop for i from 0 to (- count 2) do
+    232 - 0f0000000000 - PUSH                     ; user:36 (loop for i from 0 to (- count 2) do
+    233 - 010100000000 - LD 0                     ; user:36 (loop for i from 0 to (- count 2) do
+    234 - 0f0000000000 - PUSH                     ; user:36 (loop for i from 0 to (- count 2) do
+    235 - 010302000000 - LD [SP+2]                ; user:36 (loop for i from 0 to (- count 2) do
+    236 - 040301000000 - SUB [SP+1]               ; user:36 (loop for i from 0 to (- count 2) do
+    237 - 0a023a010000 - JG 314                   ; user:36 (loop for i from 0 to (- count 2) do
+    238 - 010100000000 - LD 0                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    239 - 0f0000000000 - PUSH                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    240 - 010204000000 - LD [4]                   ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    241 - 0f0000000000 - PUSH                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    242 - 010304000000 - LD [SP+4]                ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    243 - 030102000000 - ADD 2                    ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    244 - 0f0000000000 - PUSH                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    245 - 010301000000 - LD [SP+1]                ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    246 - 040300000000 - SUB [SP+0]               ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    247 - 100000000000 - POP                      ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    248 - 100000000000 - POP                      ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    249 - 0f0000000000 - PUSH                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    250 - 010100000000 - LD 0                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    251 - 0f0000000000 - PUSH                     ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    252 - 010302000000 - LD [SP+2]                ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    253 - 040301000000 - SUB [SP+1]               ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    254 - 0a0231010000 - JG 305                   ; user:37 (loop for j from 0 to (- count (+ i 2)) do
+    255 - 010203000000 - LD [3]                   ; user:38 (let ((a (getchar nums j))
+    256 - 030302000000 - ADD [SP+2]               ; user:38 (let ((a (getchar nums j))
+    257 - 0f0000000000 - PUSH                     ; user:38 (let ((a (getchar nums j))
+    258 - 010400000000 - LD [[SP+0]]              ; user:38 (let ((a (getchar nums j))
+    259 - 100000000000 - POP                      ; user:38 (let ((a (getchar nums j))
+    260 - 0f0000000000 - PUSH                     ; user:38 (let ((a (getchar nums j))
+    261 - 010203000000 - LD [3]                   ; user:39 (b (getchar nums (+ j 1))))
+    262 - 0f0000000000 - PUSH                     ; user:39 (b (getchar nums (+ j 1))))
+    263 - 010304000000 - LD [SP+4]                ; user:39 (b (getchar nums (+ j 1))))
+    264 - 030101000000 - ADD 1                    ; user:39 (b (getchar nums (+ j 1))))
+    265 - 0f0000000000 - PUSH                     ; user:39 (b (getchar nums (+ j 1))))
+    266 - 010301000000 - LD [SP+1]                ; user:39 (b (getchar nums (+ j 1))))
+    267 - 030300000000 - ADD [SP+0]               ; user:39 (b (getchar nums (+ j 1))))
+    268 - 100000000000 - POP                      ; user:39 (b (getchar nums (+ j 1))))
+    269 - 100000000000 - POP                      ; user:39 (b (getchar nums (+ j 1))))
+    270 - 0f0000000000 - PUSH                     ; user:39 (b (getchar nums (+ j 1))))
+    271 - 010400000000 - LD [[SP+0]]              ; user:39 (b (getchar nums (+ j 1))))
+    272 - 100000000000 - POP                      ; user:39 (b (getchar nums (+ j 1))))
+    273 - 0f0000000000 - PUSH                     ; user:39 (b (getchar nums (+ j 1))))
+    274 - 010301000000 - LD [SP+1]                ; user:40 (if (> a b)
+    275 - 040300000000 - SUB [SP+0]               ; user:40 (if (> a b)
+    276 - 0d0229010000 - JLE 297                  ; user:40 (if (> a b)
+    277 - 010203000000 - LD [3]                   ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    278 - 030304000000 - ADD [SP+4]               ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    279 - 0f0000000000 - PUSH                     ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    280 - 010301000000 - LD [SP+1]                ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    281 - 020400000000 - ST [[SP+0]]              ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    282 - 100000000000 - POP                      ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    283 - 010203000000 - LD [3]                   ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    284 - 0f0000000000 - PUSH                     ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    285 - 010305000000 - LD [SP+5]                ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    286 - 030101000000 - ADD 1                    ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    287 - 0f0000000000 - PUSH                     ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    288 - 010301000000 - LD [SP+1]                ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    289 - 030300000000 - ADD [SP+0]               ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    290 - 100000000000 - POP                      ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    291 - 100000000000 - POP                      ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    292 - 0f0000000000 - PUSH                     ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    293 - 010302000000 - LD [SP+2]                ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    294 - 020400000000 - ST [[SP+0]]              ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    295 - 100000000000 - POP                      ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    296 - 08022a010000 - JMP 298                  ; user:41 (progn (setchar nums j b) (setchar nums (+ j 1) a))
+    297 - 010100000000 - LD 0                     ; user:42 0))))
+    298 - 100000000000 - POP                      ; user:42 0))))
+    299 - 100000000000 - POP                      ; user:42 0))))
+    300 - 020300000000 - ST [SP+0]                ; user:42 0))))
+    301 - 010302000000 - LD [SP+2]                ; user:42 0))))
+    302 - 030101000000 - ADD 1                    ; user:42 0))))
+    303 - 020302000000 - ST [SP+2]                ; user:42 0))))
+    304 - 0802fc000000 - JMP 252                  ; user:42 0))))
+    305 - 010300000000 - LD [SP+0]                ; user:42 0))))
+    306 - 100000000000 - POP                      ; user:42 0))))
+    307 - 100000000000 - POP                      ; user:42 0))))
+    308 - 100000000000 - POP                      ; user:42 0))))
+    309 - 020300000000 - ST [SP+0]                ; user:42 0))))
+    310 - 010302000000 - LD [SP+2]                ; user:42 0))))
+    311 - 030101000000 - ADD 1                    ; user:42 0))))
+    312 - 020302000000 - ST [SP+2]                ; user:42 0))))
+    313 - 0802eb000000 - JMP 235                  ; user:42 0))))
+    314 - 010300000000 - LD [SP+0]                ; user:42 0))))
+    315 - 100000000000 - POP                      ; user:42 0))))
+    316 - 100000000000 - POP                      ; user:42 0))))
+    317 - 100000000000 - POP                      ; user:42 0))))
+    318 - 010100000000 - LD 0                     ; user:44 (loop for i from 0 to (- count 1) do
+    319 - 0f0000000000 - PUSH                     ; user:44 (loop for i from 0 to (- count 1) do
+    320 - 010204000000 - LD [4]                   ; user:44 (loop for i from 0 to (- count 1) do
+    321 - 040101000000 - SUB 1                    ; user:44 (loop for i from 0 to (- count 1) do
+    322 - 0f0000000000 - PUSH                     ; user:44 (loop for i from 0 to (- count 1) do
+    323 - 010100000000 - LD 0                     ; user:44 (loop for i from 0 to (- count 1) do
+    324 - 0f0000000000 - PUSH                     ; user:44 (loop for i from 0 to (- count 1) do
+    325 - 010302000000 - LD [SP+2]                ; user:44 (loop for i from 0 to (- count 1) do
+    326 - 040301000000 - SUB [SP+1]               ; user:44 (loop for i from 0 to (- count 1) do
+    327 - 0a025e010000 - JG 350                   ; user:44 (loop for i from 0 to (- count 1) do
+    328 - 010302000000 - LD [SP+2]                ; user:46 (if (> i 0) (printchar 32) 0)
+    329 - 040100000000 - SUB 0                    ; user:46 (if (> i 0) (printchar 32) 0)
+    330 - 0d0250010000 - JLE 336                  ; user:46 (if (> i 0) (printchar 32) 0)
+    331 - 010120000000 - LD 32                    ; user:46 (if (> i 0) (printchar 32) 0)
+    332 - 0f0000000000 - PUSH                     ; user:46 (if (> i 0) (printchar 32) 0)
+    333 - 110202000000 - CALL 2 <fn_printchar>    ; user:46 (if (> i 0) (printchar 32) 0)
+    334 - 100000000000 - POP                      ; user:46 (if (> i 0) (printchar 32) 0)
+    335 - 080251010000 - JMP 337                  ; user:46 (if (> i 0) (printchar 32) 0)
+    336 - 010100000000 - LD 0                     ; user:46 (if (> i 0) (printchar 32) 0)
+    337 - 010203000000 - LD [3]                   ; user:47 (printnumber (getchar nums i))))
+    338 - 030302000000 - ADD [SP+2]               ; user:47 (printnumber (getchar nums i))))
+    339 - 0f0000000000 - PUSH                     ; user:47 (printnumber (getchar nums i))))
+    340 - 010400000000 - LD [[SP+0]]              ; user:47 (printnumber (getchar nums i))))
+    341 - 100000000000 - POP                      ; user:47 (printnumber (getchar nums i))))
+    342 - 0f0000000000 - PUSH                     ; user:47 (printnumber (getchar nums i))))
+    343 - 11021c000000 - CALL 28 <fn_printnumber> ; user:47 (printnumber (getchar nums i))))
+    344 - 100000000000 - POP                      ; user:47 (printnumber (getchar nums i))))
+    345 - 020300000000 - ST [SP+0]                ; user:47 (printnumber (getchar nums i))))
+    346 - 010302000000 - LD [SP+2]                ; user:47 (printnumber (getchar nums i))))
+    347 - 030101000000 - ADD 1                    ; user:47 (printnumber (getchar nums i))))
+    348 - 020302000000 - ST [SP+2]                ; user:47 (printnumber (getchar nums i))))
+    349 - 080245010000 - JMP 325                  ; user:47 (printnumber (getchar nums i))))
+    350 - 010300000000 - LD [SP+0]                ; user:47 (printnumber (getchar nums i))))
+    351 - 100000000000 - POP                      ; user:47 (printnumber (getchar nums i))))
+    352 - 100000000000 - POP                      ; user:47 (printnumber (getchar nums i))))
+    353 - 100000000000 - POP                      ; user:47 (printnumber (getchar nums i))))
+    354 - 01010a000000 - LD 10                    ; user:48 (printchar 10)
+    355 - 0f0000000000 - PUSH                     ; user:48 (printchar 10)
+    356 - 110202000000 - CALL 2 <fn_printchar>    ; user:48 (printchar 10)
+    357 - 100000000000 - POP                      ; user:48 (printchar 10)
+    358 - 130000000000 - HLT                      ; user:48 (printchar 10)
+  ; data: 102 words
+      0 - 00000000 - 0
+      1 - 00000000 - 0
+      2 - 00000000 - 0
+      3 - 00000000 - 0
+      4 - 00000000 - 0
+      5 - 00000000 - 0
+      6 - 00000000 - 0
+      7 - 00000000 - 0
+      8 - 00000000 - 0
+      9 - 00000000 - 0
+     10 - 00000000 - 0
+     11 - 00000000 - 0
+     12 - 00000000 - 0
+     13 - 00000000 - 0
+     14 - 00000000 - 0
+     15 - 00000000 - 0
+     16 - 00000000 - 0
+     17 - 00000000 - 0
+     18 - 00000000 - 0
+     19 - 00000000 - 0
+     20 - 00000000 - 0
+     21 - 00000000 - 0
+     22 - 00000000 - 0
+     23 - 00000000 - 0
+     24 - 00000000 - 0
+     25 - 00000000 - 0
+     26 - 00000000 - 0
+     27 - 00000000 - 0
+     28 - 00000000 - 0
+     29 - 00000000 - 0
+     30 - 00000000 - 0
+     31 - 00000000 - 0
+     32 - 00000000 - 0
+     33 - 00000000 - 0
+     34 - 00000000 - 0
+     35 - 00000000 - 0
+     36 - 00000000 - 0
+     37 - 00000000 - 0
+     38 - 00000000 - 0
+     39 - 00000000 - 0
+     40 - 00000000 - 0
+     41 - 00000000 - 0
+     42 - 00000000 - 0
+     43 - 00000000 - 0
+     44 - 00000000 - 0
+     45 - 00000000 - 0
+     46 - 00000000 - 0
+     47 - 00000000 - 0
+     48 - 00000000 - 0
+     49 - 00000000 - 0
+     50 - 00000000 - 0
+     51 - 00000000 - 0
+     52 - 00000000 - 0
+     53 - 00000000 - 0
+     54 - 00000000 - 0
+     55 - 00000000 - 0
+     56 - 00000000 - 0
+     57 - 00000000 - 0
+     58 - 00000000 - 0
+     59 - 00000000 - 0
+     60 - 00000000 - 0
+     61 - 00000000 - 0
+     62 - 00000000 - 0
+     63 - 00000000 - 0
+     64 - 00000000 - 0
+     65 - 00000000 - 0
+     66 - 00000000 - 0
+     67 - 00000000 - 0
+     68 - 00000000 - 0
+     69 - 00000000 - 0
+     70 - 00000000 - 0
+     71 - 00000000 - 0
+     72 - 00000000 - 0
+     73 - 00000000 - 0
+     74 - 00000000 - 0
+     75 - 00000000 - 0
+     76 - 00000000 - 0
+     77 - 00000000 - 0
+     78 - 00000000 - 0
+     79 - 00000000 - 0
+     80 - 00000000 - 0
+     81 - 00000000 - 0
+     82 - 00000000 - 0
+     83 - 00000000 - 0
+     84 - 00000000 - 0
+     85 - 00000000 - 0
+     86 - 00000000 - 0
+     87 - 00000000 - 0
+     88 - 00000000 - 0
+     89 - 00000000 - 0
+     90 - 00000000 - 0
+     91 - 00000000 - 0
+     92 - 00000000 - 0
+     93 - 00000000 - 0
+     94 - 00000000 - 0
+     95 - 00000000 - 0
+     96 - 00000000 - 0
+     97 - 00000000 - 0
+     98 - 00000000 - 0
+     99 - 00000000 - 0
+    100 - 00000000 - 0
+    101 - 00000000 - 0
+out_stdout: |
+  -10 -3 0 4 5 7 12
+out_stats: |
+  ticks: 26098
+  instructions: 3235
+  interrupts: 18
+  cache read hits: 460
+  cache read misses: 838
+  stop reason: halt
+out_log: |2
+        1 | MAIN | FETCH -> JMP 210           s0 | PS=1     AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        2 | MAIN | JMP 210                    s1 | PS=210   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        3 | MAIN | FETCH -> LD 6              s0 | PS=211   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        4 | MAIN | LD 6                       s1 | PS=211   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        5 | MAIN | FETCH -> ST [0]            s0 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        6 | MAIN | ST [0]                     s1 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+        7 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 1/10 wait
+        8 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 2/10 wait
+        9 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 3/10 wait
+       10 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 4/10 wait
+       11 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 5/10 wait
+       12 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 6/10 wait
+       13 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 7/10 wait
+       14 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 8/10 wait
+       15 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 9/10 wait
+       16 | MAIN | ST [0]                     s2 | PS=212   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0 | CACHE WR [0] MISS 10/10
+       17 | MAIN | FETCH -> LD 0              s0 | PS=213   AC=6           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       18 | MAIN | LD 0                       s1 | PS=213   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       19 | MAIN | FETCH -> ST [1]            s0 | PS=214   AC=0           SP=65536 DA=0     | Z0N0P0 IE0 PEND0
+       20 | MAIN | ST [1]                     s1 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       21 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 1/10 wait
+       22 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 2/10 wait
+       23 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 3/10 wait
+       24 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 4/10 wait
+       25 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 5/10 wait
+       26 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 6/10 wait
+       27 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 7/10 wait
+       28 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 8/10 wait
+       29 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 9/10 wait
+       30 | MAIN | ST [1]                     s2 | PS=214   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0 | CACHE WR [1] MISS 10/10
+       31 | MAIN | FETCH -> LD 0              s0 | PS=215   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       32 | MAIN | LD 0                       s1 | PS=215   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       33 | MAIN | FETCH -> ST [2]            s0 | PS=216   AC=0           SP=65536 DA=1     | Z0N0P0 IE0 PEND0
+       34 | MAIN | ST [2]                     s1 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0
+       35 | MAIN | ST [2]                     s2 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 1/10 wait
+       36 | MAIN | ST [2]                     s2 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 2/10 wait
+       37 | MAIN | ST [2]                     s2 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 3/10 wait
+       38 | MAIN | ST [2]                     s2 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 4/10 wait
+       39 | MAIN | ST [2]                     s2 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 5/10 wait
+       40 | MAIN | ST [2]                     s2 | PS=216   AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 6/10 wait
+  ... 26048 lines omitted ...
+    26089 | MAIN | FETCH -> OUT 1             s0 | PS=4     AC=10          SP=65534 DA=65535 | Z0N0P1 IE1 PEND0
+    26090 | MAIN | OUT 1                      s1 | PS=4     AC=10          SP=65534 DA=65535 | Z0N0P1 IE1 PEND0 | OUT port 1 <- '\n'
+    26091 | MAIN | FETCH -> RET               s0 | PS=5     AC=10          SP=65534 DA=65535 | Z0N0P1 IE1 PEND0
+    26092 | MAIN | RET                        s1 | PS=5     AC=10          SP=65534 DA=65534 | Z0N0P1 IE1 PEND0
+    26093 | MAIN | RET                        s2 | PS=5     AC=10          SP=65534 DA=65534 | Z0N0P1 IE1 PEND0 | CACHE RD [65534] HIT 1/1
+    26094 | MAIN | RET                        s3 | PS=357   AC=10          SP=65535 DA=65534 | Z0N0P1 IE1 PEND0
+    26095 | MAIN | FETCH -> POP               s0 | PS=358   AC=10          SP=65535 DA=65534 | Z0N0P1 IE1 PEND0
+    26096 | MAIN | POP                        s1 | PS=358   AC=10          SP=65536 DA=65534 | Z0N0P1 IE1 PEND0
+    26097 | MAIN | FETCH -> HLT               s0 | PS=359   AC=10          SP=65536 DA=65534 | Z0N0P1 IE1 PEND0
+    26098 | MAIN | HLT                        s1 | PS=359   AC=10          SP=65536 DA=65534 | Z0N0P1 IE1 PEND0
