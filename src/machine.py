@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import struct
 import sys
 from dataclasses import dataclass
 from enum import Enum, auto
+from pathlib import Path
 from typing import TextIO
 
 from isa import (
@@ -152,7 +154,7 @@ class InputDevice:
             self.next_index += 1
             if self.irq:
                 notes.append(f"INPUT OVERRUN: символ {self.data} потерян")
-            self.data = ord(char) # кладём новый символ в порт
+            self.data = ord(char)  # кладём новый символ в порт
             self.irq = True
             notes.append(f"INPUT {char!r} -> порт {PORT_IN}, irq=1")
         return notes
@@ -168,6 +170,7 @@ class InputDevice:
 
 class OutputDevice:
     """Устройство вывода: принимает байты в порт, превращает в символы, копит их"""
+
     def __init__(self) -> None:
         self.chars: list[str] = []
 
@@ -180,7 +183,6 @@ class OutputDevice:
 
 
 class DataCache:
-
     def __init__(self, memory: list[int], lines: int = CACHE_LINES) -> None:
         self.memory = memory
         self.lines = lines
@@ -261,13 +263,12 @@ class DataCache:
 
 
 class DataPath:
-
     def __init__(
-            self,
-            code: bytes,
-            data: bytes,
-            schedule: list[tuple[int, str]],
-            cache_lines: int = CACHE_LINES,
+        self,
+        code: bytes,
+        data: bytes,
+        schedule: list[tuple[int, str]],
+        cache_lines: int = CACHE_LINES,
     ) -> None:
         if len(code) % INSTR_BYTES:
             raise MachineError("размер файла кода не кратен размеру команды")
@@ -487,7 +488,7 @@ class ControlUnit:
 
     def __init__(self, datapath: DataPath) -> None:
         self.datapath = datapath
-        self.step = 0 # счётчик тактов внутри текущей инструкции
+        self.step = 0  # счётчик тактов внутри текущей инструкции
         self.interrupt_entry = False
         self.instructions = 0
         self.interrupts = 0
@@ -498,9 +499,7 @@ class ControlUnit:
         if instr is None:
             raise MachineError("в регистре команды нет команды")
         if instr.operand_type not in ALLOWED_OPERAND_TYPES[instr.opcode]:
-            raise MachineError(
-                f"недопустимый тип операнда {instr.operand_type.name} для {instr.opcode.name}"
-            )
+            raise MachineError(f"недопустимый тип операнда {instr.operand_type.name} для {instr.opcode.name}")
         return instr
 
     def branch_logic(self, op: Opcode) -> bool:
@@ -534,10 +533,7 @@ class ControlUnit:
     def _load_like_signals(self, instr: Instruction) -> list[Signals]:
         """ld, add, sub, mul, div, rem"""
         op, ot = instr.opcode, instr.operand_type
-        if ot == OperandType.IMMEDIATE:
-            immediate = True
-        else:
-            immediate = False
+        immediate = ot == OperandType.IMMEDIATE
         execute = Signals(
             latch_acc=True,
             b_sel=BSel.OPERAND if ot == OperandType.IMMEDIATE else BSel.DATA,
@@ -675,13 +671,13 @@ class Machine:
     """Процессор: ControlUnit + DataPath, счётчик тактов и логи"""
 
     def __init__(
-            self,
-            code: bytes,
-            data: bytes,
-            schedule: list[tuple[int, str]],
-            *,
-            log: TextIO | None = None,
-            cache_lines: int = CACHE_LINES,
+        self,
+        code: bytes,
+        data: bytes,
+        schedule: list[tuple[int, str]],
+        *,
+        log: TextIO | None = None,
+        cache_lines: int = CACHE_LINES,
     ) -> None:
         self.datapath = DataPath(code, data, schedule, cache_lines)
         self.control_unit = ControlUnit(self.datapath)
@@ -752,21 +748,18 @@ def parse_schedule(text: str) -> list[tuple[int, str]]:
     return schedule
 
 
-def run_files(
-        code_path: str,
-        data_path: str,
-        input_path: str,
-        *,
-        log: TextIO | None,
-        limit: int,
-        cache_lines: int,
+def run_files(  # noqa: PLR0913 - три файла и три настройки модели, все именованные
+    code_path: str,
+    data_path: str,
+    input_path: str,
+    *,
+    log: TextIO | None,
+    limit: int,
+    cache_lines: int,
 ) -> Result:
-    with open(code_path, "rb") as file:
-        code = file.read()
-    with open(data_path, "rb") as file:
-        data = file.read()
-    with open(input_path, encoding="utf-8") as file:
-        schedule = parse_schedule(file.read())
+    code = Path(code_path).read_bytes()
+    data = Path(data_path).read_bytes()
+    schedule = parse_schedule(Path(input_path).read_text(encoding="utf-8"))
     machine = Machine(code, data, schedule, log=log, cache_lines=cache_lines)
     return machine.run(limit)
 
@@ -778,25 +771,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("input", help="файл с расписанием ввода")
     parser.add_argument("--log", help="файл журнала работы процессора")
     parser.add_argument("--limit", type=int, default=DEFAULT_TICK_LIMIT, help="максимум тактов")
-    parser.add_argument("--cache-lines", type=int, default=CACHE_LINES, help="число строк кеша")
+    parser.add_argument("--cache-lines", type=int, default=CACHE_LINES, help="число строк кеша (0 - без кеша)")
     args = parser.parse_args(argv)
 
-    log_file = open(args.log, "w", encoding="utf-8") if args.log else None
     try:
-        result = run_files(
-            args.code,
-            args.data,
-            args.input,
-            log=log_file,
-            limit=args.limit,
-            cache_lines=args.cache_lines,
-        )
+        with contextlib.ExitStack() as stack:
+            log_file = stack.enter_context(Path(args.log).open("w", encoding="utf-8")) if args.log else None
+            result = run_files(
+                args.code,
+                args.data,
+                args.input,
+                log=log_file,
+                limit=args.limit,
+                cache_lines=args.cache_lines,
+            )
     except (MachineError, OSError) as exc:
         sys.stderr.write(f"ошибка: {exc}\n")
         return 1
-    finally:
-        if log_file is not None:
-            log_file.close()
 
     sys.stdout.write(result.output + "\n")
     sys.stderr.write(

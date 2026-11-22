@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Union
+import argparse
 import re
 import sys
-import argparse
-
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from isa import (
     ALLOWED_OPERAND_TYPES,
@@ -22,10 +21,14 @@ from isa import (
     instruction_to_string,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Sequence
+
 DEFAULT_STDLIB = Path(__file__).with_name("stdlib.lsp")
 STDLIB_INPUT_TRIGGER = "readchar"
 STATIC_LIMIT = DATA_MEM_WORDS - STACK_WORDS
 PORT_LIMIT = 255
+
 
 class TranslatorError(Exception):
     """Ошибка трансляции"""
@@ -59,11 +62,11 @@ RESERVED = frozenset(
     {"define", "defun", "defint", "if", "progn", "let", "setq", "loop", "for", "from", "to", "do", "not"}
 )
 BUILTIN_ARITY: dict[str, int] = {
-    "port-in": 1,       # (port-in 0)
-    "port-out": 2,      # (port-out 1 65)
-    "getchar": 2,       # (getchar buffer index)
-    "setchar": 3,       # (setchar buffer index c)
-    "makestring": 1,    # (makestring length)
+    "port-in": 1,  # (port-in 0)
+    "port-out": 2,  # (port-out 1 65)
+    "getchar": 2,  # (getchar buffer index)
+    "setchar": 3,  # (setchar buffer index c)
+    "makestring": 1,  # (makestring length)
     "ei": 0,
     "di": 0,
     "halt": 0,
@@ -124,7 +127,8 @@ def tokenize(text: str, origin: str) -> list[Token]:
 
 
 def _read_string(text: str, start: int, line: int, origin: str) -> tuple[int, str]:
-    i, chars = start + 1, []
+    i = start + 1
+    chars: list[str] = []
     while i < len(text):
         c = text[i]
         if c == '"':
@@ -171,7 +175,7 @@ class SList:
     line: int
 
 
-SExpr = Union[SAtom, SList]
+SExpr = SAtom | SList
 
 
 def read_sexprs(tokens: list[Token], origin: str) -> list[SExpr]:
@@ -276,7 +280,7 @@ class Call:
     line: int
 
 
-Expr = Union[Num, Str, Var, BinOp, Not, If, Progn, Let, Setq, Loop, Call]
+Expr = Num | Str | Var | BinOp | Not | If | Progn | Let | Setq | Loop | Call
 
 
 @dataclass(frozen=True)
@@ -301,7 +305,7 @@ class Defint:
     line: int
 
 
-Toplevel = Union[Define, Defun, Defint, Expr]
+Toplevel = Define | Defun | Defint | Expr
 
 
 class Parser:
@@ -381,14 +385,15 @@ class Parser:
             if len(args) != 2:
                 raise self.fail(s.line, f"({word} a b): операция принимает ровно два аргумента")
             return BinOp(word, self.parse_expr(args[0]), self.parse_expr(args[1]), s.line)
-        builder = {
+        builders: dict[str, Callable[[SList, tuple[SExpr, ...]], Expr]] = {
             "not": self.parse_not,
             "if": self.parse_if,
             "progn": self.parse_progn,
             "let": self.parse_let,
             "setq": self.parse_setq,
             "loop": self.parse_loop,
-        }.get(word)
+        }
+        builder = builders.get(word)
         if builder is not None:
             return builder(s, args)
         if word in ("define", "defun", "defint"):
@@ -451,7 +456,7 @@ class Parser:
 
 
 # вывод AST
-def _describe(node: object) -> tuple[str, list[tuple[str, object]]]:
+def _describe(node: object) -> tuple[str, Sequence[tuple[str, object]]]:
     if isinstance(node, Num):
         return f"Num {node.value}", []
     if isinstance(node, Str):
@@ -499,7 +504,7 @@ def ast_to_string(items: list[Toplevel]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def iter_nodes(node: object):  # noqa: ANN201
+def iter_nodes(node: object) -> Iterator[object]:
     """Все узлы поддерева в прямом порядке."""
     yield node
     for _, child in _describe(node)[1]:
@@ -668,24 +673,25 @@ class CodeGen:
         self.line = e.line
         if isinstance(e, (Num, Str, Var)):
             operand = self.simple_operand(e, env)
-            assert operand is not None
+            if operand is None:
+                raise self.error("внутренняя ошибка: операнд не вычислен")
             self.emit(Opcode.LD, *operand)
         elif isinstance(e, BinOp):
             self.gen_binop(e, env)
         elif isinstance(e, Not):
             self.gen_not(e, env)
         elif isinstance(e, If):
-            self.gen_if(e, env, tail)
+            self.gen_if(e, env, tail=tail)
         elif isinstance(e, Progn):
             self.gen_body(e.body, env, tail=tail)
         elif isinstance(e, Let):
-            self.gen_let(e, env, tail)
+            self.gen_let(e, env, tail=tail)
         elif isinstance(e, Setq):
             self.gen_setq(e, env)
         elif isinstance(e, Loop):
             self.gen_loop(e, env)
         else:
-            self.gen_call(e, env, tail)
+            self.gen_call(e, env, tail=tail)
 
     def gen_flags(self, e: BinOp, env: Env) -> None:
         """AC = left op right"""
@@ -740,7 +746,7 @@ class CodeGen:
             self.emit(Opcode.SUB, OperandType.IMMEDIATE, 0)
             self.emit(Opcode.JE, OperandType.ADDRESS, target)
 
-    def gen_if(self, e: If, env: Env, tail: bool) -> None:
+    def gen_if(self, e: If, env: Env, *, tail: bool) -> None:
         else_label, end_label = self.new_label("else"), self.new_label("endif")
         self.gen_jump_if_false(e.cond, else_label, env)
         self.gen_expr(e.then, env, tail=tail)
@@ -749,7 +755,7 @@ class CodeGen:
         self.gen_expr(e.otherwise, env, tail=tail)
         self.label(end_label)
 
-    def gen_let(self, e: Let, env: Env, tail: bool) -> None:
+    def gen_let(self, e: Let, env: Env, *, tail: bool) -> None:
         for name, init in e.bindings:
             self.gen_expr(init, env)
             self.push()
@@ -800,7 +806,7 @@ class CodeGen:
 
     # вызовы
 
-    def gen_call(self, e: Call, env: Env, tail: bool) -> None:
+    def gen_call(self, e: Call, env: Env, *, tail: bool) -> None:
         if e.name in BUILTIN_ARITY:
             self.gen_builtin(e, env)
             return
@@ -899,9 +905,7 @@ class Program:
             names.setdefault(index, []).append(name)
         lines = [f"; code: {len(self.code)} instructions"]
         for address, instr in enumerate(self.code):
-            for name in names.get(address, []):
-                if not name.startswith("."):
-                    lines.append(f"; {name}:")
+            lines.extend(f"; {name}:" for name in names.get(address, []) if not name.startswith("."))
             text = instruction_to_string(instr)
             if instr.operand_type == OperandType.ADDRESS and instr.opcode.name.startswith(("J", "CALL")):
                 target = [n for n in names.get(instr.operand, []) if not n.startswith(".")]
@@ -912,7 +916,9 @@ class Program:
             if kind == "vector":
                 comment = f"; interrupt vector {line}"
             else:
-                source = self.sources[kind][int(line) - 1].strip()
+                src_lines = self.sources.get(kind, [])
+                number = int(line)
+                source = src_lines[number - 1].strip() if 1 <= number <= len(src_lines) else ""
                 comment = f"; {origin} {source}"
             lines.append(f"{address:5d} - {encode_instruction(instr).hex()} - {text:<24} {comment}")
         lines.append(f"; data: {len(self.data)} words")
@@ -939,7 +945,7 @@ def _select_items(
     stdlib_module = [i for i in stdlib if not isinstance(i, Defun)]
 
     needed: set[str] = set()
-    pending = [i for i in user]
+    pending = list(user)
     module_included = False
     while pending:
         item = pending.pop()
@@ -981,7 +987,7 @@ def translate(source: str, stdlib: str | None = None) -> Program:
         if isinstance(item, Defun):
             gen.gen_function(item, origin)
     for item, origin in handlers:
-        gen.gen_interrupt(item, origin)  # type: ignore[arg-type]
+        gen.gen_interrupt(item, origin)
     gen.gen_toplevel(selected)
 
     vector = [

@@ -1,3 +1,41 @@
+[project]
+name = "csa-lab4"
+version = "0.1.0"
+requires-python = ">=3.11"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D",       # docstring-стиль не проверяем: комментарии на русском, без формата Google/NumPy
+    "RUF001",  # кириллица в строках (сообщения на русском)
+    "RUF002",  # кириллица в docstring
+    "RUF003",  # кириллица в комментариях
+    "CPY001",  # учебный проект, заголовок с лицензией в каждом файле не нужен
+    "TRY003",  # короткие сообщения об ошибках пишем прямо в raise, отдельные классы исключений не заводим
+    "EM101",   # то же: сообщение исключения строкой прямо в raise
+    "EM102",   # то же для f-строк
+    "C901",    # декодер команд, генератор кода и разбор форм - диспетчеры по коду операции / виду узла AST:
+    "PLR0911", #   одна ветка на вариант; дробление на функции ухудшит читаемость
+    "PLR0912", #   (там же)
+    "COM812",  # конфликтует с ruff format
+    "ISC001",  # конфликтует с ruff format
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # assert в тестах это нормально
+"src/translator.py" = ["PLR2004"]  # сравнения с числом аргументов формы: (if c t e) - ровно 3 и т.п.
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = "src"
+files = ["src", "tests"]
