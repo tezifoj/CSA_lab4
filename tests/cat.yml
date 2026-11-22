@@ -211,7 +211,25 @@ out_log: |2
        38 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 4/10 wait
        39 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 5/10 wait
        40 | MAIN | ST [2]                     s2 | PS=55    AC=0           SP=65536 DA=2     | Z0N0P0 IE0 PEND0 | CACHE WR [2] MISS 6/10 wait
-  ... 2640 lines omitted ...
+  ...
+      198 | MAIN | FETCH -> JNE 10            s0 | PS=8     AC=0           SP=65532 DA=2     | Z1N0P0 IE1 PEND0
+      199 | MAIN | JNE 10                     s1 | PS=8     AC=0           SP=65532 DA=2     | Z1N0P0 IE1 PEND0
+      200 | MAIN | INTERRUPT ENTRY            s1 | PS=8     AC=0           SP=65531 DA=2     | Z1N0P0 IE1 PEND1 | INPUT 'h' -> порт 0, irq=1; INTERRUPT: вход в обработчик
+      201 | MAIN | INTERRUPT ENTRY            s2 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1
+      202 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 1/10 wait
+      203 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 2/10 wait
+      204 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 3/10 wait
+      205 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 4/10 wait
+      206 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 5/10 wait
+      207 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 6/10 wait
+      208 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 7/10 wait
+      209 | MAIN | INTERRUPT ENTRY            s3 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE WR [65531] MISS 8/10 wait
+  ...
+      401 | INT  | IRET                       s5 | PS=49    AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE RD [65531] MISS 9/10 wait
+      402 | INT  | IRET                       s5 | PS=49    AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | CACHE RD [65531] MISS 10/10
+      403 | MAIN | IRET                       s6 | PS=8     AC=0           SP=65532 DA=65531 | Z1N0P0 IE1 PEND1
+      404 | MAIN | INTERRUPT ENTRY            s1 | PS=8     AC=0           SP=65531 DA=65531 | Z1N0P0 IE1 PEND1 | INTERRUPT: вход в обработчик
+  ...
      2681 | MAIN | LD [SP+0]                  s2 | PS=76    AC=1           SP=65533 DA=65533 | Z0N0P1 IE1 PEND0 | CACHE RD [65533] MISS 10/10
      2682 | MAIN | LD [SP+0]                  s3 | PS=76    AC=111         SP=65533 DA=65533 | Z0N0P1 IE1 PEND0
      2683 | MAIN | FETCH -> POP               s0 | PS=77    AC=111         SP=65533 DA=65533 | Z0N0P1 IE1 PEND0

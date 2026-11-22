@@ -1,6 +1,6 @@
 """
 Golden-тесты
-Один тест -- это файл `tests/golden/<имя>.yml` со входом (`in_*`, `config`) и результатами (`out_*`)
+Один тест -- это файл `tests/<имя>.yml` со входом (`in_*`, `config`) и результатами (`out_*`)
 """
 
 import io
@@ -35,12 +35,26 @@ def _clean(text: str) -> str:
     return "".join(line.rstrip() + "\n" for line in text.splitlines())
 
 
+def _interrupt_window(lines: list[str], start: int) -> list[str]:
+    """Вход в первое прерывание после строки start и возврат из него в основную программу"""
+    entry = next((i for i in range(start, len(lines)) if "INTERRUPT:" in lines[i]), None)
+    if entry is None:
+        return []
+    window = lines[entry - 2 : entry + 10]
+    back = next((i for i in range(entry, len(lines)) if "| MAIN | IRET" in lines[i]), None)
+    if back is not None:
+        window += ["...", *lines[back - 2 : back + 2]]
+    return window
+
+
 def _trim_log(log: str, head: int, tail: int) -> str:
+    """Начало и конец журнала; если были прерывания - ещё вход в первое из них и возврат"""
     lines = log.splitlines()
     if len(lines) <= head + tail:
         return _clean(log)
-    omitted = len(lines) - head - tail
-    return _clean("\n".join([*lines[:head], f"... {omitted} lines omitted ...", *lines[-tail:]]))
+    middle = _interrupt_window(lines, head)
+    parts = [*lines[:head], "...", *middle, "..." if middle else "", *lines[-tail:]]
+    return _clean("\n".join(part for part in parts if part))
 
 
 def run_case(case: dict[str, Any]) -> dict[str, str]:

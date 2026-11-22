@@ -350,7 +350,7 @@ out_log: |2
        38 | MAIN | FETCH -> PUSH              s0 | PS=86    AC=0           SP=65536 DA=4     | Z1N0P0 IE0 PEND0
        39 | MAIN | PUSH                       s1 | PS=86    AC=0           SP=65535 DA=4     | Z1N0P0 IE0 PEND0
        40 | MAIN | PUSH                       s2 | PS=86    AC=0           SP=65535 DA=65535 | Z1N0P0 IE0 PEND0
-  ... 2932 lines omitted ...
+  ...
      2973 | MAIN | FETCH -> OUT 1             s0 | PS=4     AC=10          SP=65534 DA=65535 | Z1N0P0 IE0 PEND0
      2974 | MAIN | OUT 1                      s1 | PS=4     AC=10          SP=65534 DA=65535 | Z1N0P0 IE0 PEND0 | OUT port 1 <- '\n'
      2975 | MAIN | FETCH -> RET               s0 | PS=5     AC=10          SP=65534 DA=65535 | Z1N0P0 IE0 PEND0

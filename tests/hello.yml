@@ -107,7 +107,7 @@ out_log: |2
        38 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 5/10 wait
        39 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 6/10 wait
        40 | MAIN | LD [SP+1]                  s2 | PS=6     AC=0           SP=65534 DA=65535 | Z0N0P0 IE0 PEND0 | CACHE RD [65535] MISS 7/10 wait
-  ... 2089 lines omitted ...
+  ...
      2130 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 6/10 wait
      2131 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 7/10 wait
      2132 | MAIN | RET                        s2 | PS=28    AC=0           SP=65534 DA=65534 | Z1N0P0 IE0 PEND0 | CACHE RD [65534] MISS 8/10 wait
