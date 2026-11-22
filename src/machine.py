@@ -43,6 +43,7 @@ DEFAULT_TICK_LIMIT = 1_000_000
 class MachineError(Exception):
     pass  # ошибка времени выполнения модели
 
+
 class PsSel(Enum):
     INC = auto()  # PS + 1
     OPERAND = auto()  # операнд команды (адрес перехода)
@@ -654,6 +655,7 @@ class ControlUnit:
         instr = self.datapath.dr
         mnemonic = instruction_to_string(instr) if instr is not None else "-"
         return f"FETCH -> {mnemonic}" if step == 0 else mnemonic
+
 
 @dataclass
 class Result:

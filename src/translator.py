@@ -162,7 +162,9 @@ def _read_char(text: str, start: int, line: int, origin: str) -> tuple[int, int]
         return j, CHAR_NAMES[word]
     raise TranslatorError(f"{origin}:{line}: неизвестный литерал символа #\\{word}")
 
+
 # Чтение S-выражений
+
 
 @dataclass(frozen=True)
 class SAtom:
@@ -202,6 +204,7 @@ def read_sexprs(tokens: list[Token], origin: str) -> list[SExpr]:
     while pos < len(tokens):
         result.append(read())
     return result
+
 
 # AST
 @dataclass(frozen=True)
@@ -509,6 +512,7 @@ def iter_nodes(node: object) -> Iterator[object]:
     yield node
     for _, child in _describe(node)[1]:
         yield from iter_nodes(child)
+
 
 # Размещение данных
 
@@ -881,7 +885,9 @@ class CodeGen:
             raise self.error("номер порта должен быть числовым литералом")
         return e.value
 
+
 # Программа
+
 
 @dataclass
 class Program:
@@ -1022,7 +1028,9 @@ def translate(source: str, stdlib: str | None = None) -> Program:
         sources={"user": source.splitlines(), "stdlib": (stdlib or "").splitlines()},
     )
 
+
 # Командная строка
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Транслятор Lisp -> машинный код (acc, harv)")

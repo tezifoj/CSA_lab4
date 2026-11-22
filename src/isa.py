@@ -142,6 +142,7 @@ def instruction_to_string(instr: Instruction) -> str:
         return f"{name} [[SP{instr.operand:+d}]]"
     raise ValueError(f"неизвестный тип операнда: {instr.operand_type!r}")
 
+
 # Формат в памяти: opcode (1 байт), тип операнда (1 байт), операнд (4 байта), little-endian
 _INSTR_STRUCT = struct.Struct("<BBI")
 _WORD_STRUCT = struct.Struct("<I")
