@@ -440,7 +440,7 @@ DataPath и ControlUnit реализованы как одноимённые к�
 
 ### DataPath
 
-![DataPath](resources/datapath.png)
+![DataPath](resources/DataPath.png)
 
 Схема DataPath принимает следующие сигналы от ControlUnit:
 
